@@ -1,0 +1,15 @@
+[package]
+name = "nlpie_core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "nlpie_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21.0", features = ["experimental-declarative-modules"] }
+ndarray = "0.16.1"
+ndarray-linalg = { version = "0.17.0", features = ["openblas-system"] }
+thiserror = "1.0"
+openblas-src = { version = "0.10.16", features = ["system", "native-tls"] }
