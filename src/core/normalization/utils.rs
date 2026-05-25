@@ -1,5 +1,5 @@
+use crate::errors::PreprocessingError;
 use ndarray::{Array2, Axis};
-use super::error::PreprocessingError;
 
 /// The default epsilon value used to prevent division by zero in numerical operations.
 pub const DEFAULT_EPS: f32 = 1e-12;

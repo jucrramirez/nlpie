@@ -1,6 +1,6 @@
-use ndarray::{Array1, Array2, Axis};
-use super::error::PreprocessingError;
 use super::utils::ensure_non_empty;
+use crate::errors::PreprocessingError;
+use ndarray::{Array1, Array2, Axis};
 
 /// Statistics gathered during the fitting phase of normalization operations.
 #[derive(Debug, Clone)]
@@ -29,11 +29,5 @@ pub fn mean_center(
         .ok_or(PreprocessingError::EmptyMatrix)?;
     let centered = embeddings - &mean;
 
-    Ok((
-        centered,
-        FitStats {
-            mean,
-            std: None,
-        },
-    ))
+    Ok((centered, FitStats { mean, std: None }))
 }
