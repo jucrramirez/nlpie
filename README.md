@@ -30,7 +30,7 @@ Constructive feedback, pull requests, and band-aids for your eyes are always wel
 
 ## 🧰 Project structure
 
-This project uses a mixed Rust + Python layout with the Python package under `python/nlpie`, the Rust core under `src/`, and a `maturin`/`uv` workflow for local development. The Rust library is exposed as `nlpie._nlpie_core`, while the Python package lives in the `python` source tree configured in `pyproject.toml`. [file:33][file:34][web:40]
+This project uses a mixed Rust + Python layout with the Python package under `python/nlpie`, the Rust core under `src/`, and a `maturin`/`uv` workflow for local development. The Rust library is exposed as `nlpie._nlpie_core`, while the Python package lives in the `python` source tree configured in `pyproject.toml`.
 
 ```text
 nlpie/
@@ -49,12 +49,12 @@ nlpie/
 
 ### Prerequisites
 
-Before running the project, make sure you have Python 3.12 or newer, a working Rust toolchain, and `uv` installed. The current project configuration requires Python `>=3.12`, uses `maturin` as the build backend, and enables the `extension-module` feature for the Rust/Python binding. [file:34][file:33][web:42][web:54]
+Before running the project, make sure you have Python 3.12 or newer, a working Rust toolchain, and `uv` installed. The current project configuration requires Python `>=3.12`, uses `maturin` as the build backend, and enables the `extension-module` feature for the Rust/Python binding.
 
 ### Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/jucrramirez/nlpie.git
 cd nlpie
 ```
 
@@ -93,7 +93,7 @@ uv run maturin build
 
 ## ▶️ Running the project
 
-Because this project currently includes a `main.py` entry point and a Python package under `python/nlpie`, a typical local workflow is to use `uv` to sync dependencies and then run the script or tests from the project root. [file:32][file:34]
+Because this project currently includes a `main.py` entry point and a Python package under `python/nlpie`, a typical local workflow is to use `uv` to sync dependencies and then run the script or tests from the project root.
 
 ### Run the main script
 
