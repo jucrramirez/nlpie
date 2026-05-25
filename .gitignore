@@ -11,3 +11,7 @@ wheels/
 
 # rust
 /target
+
+# IDE
+.vscode
+/.agents 
