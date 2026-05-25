@@ -1,9 +1,9 @@
-use ndarray::Array2;
-use super::error::PreprocessingError;
 use super::centering::{mean_center, FitStats};
 use super::standardization::standardize_columns;
-use super::whitening::{whiten_pca, remove_top_principal_components, WhitenModel};
 use super::utils::{l2_normalize_rows, DEFAULT_EPS};
+use super::whitening::{remove_top_principal_components, whiten_pca, WhitenModel};
+use crate::errors::PreprocessingError;
+use ndarray::Array2;
 
 /// A convenience preprocessor struct that wraps various normalization routines.
 ///

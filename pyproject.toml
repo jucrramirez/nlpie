@@ -1,7 +1,21 @@
+[build-system]
+requires = ["maturin>=1.13,<2.0"]
+build-backend = "maturin"
+
 [project]
 name = "nlpie"
 version = "0.1.0"
-description = "Add your description here"
+description = "A high-performance NLP library for evaluation tasks."
 readme = "README.md"
 requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
 dependencies = []
+
+[tool.maturin]
+features = ["extension-module"]
+python-source = "python"
+module-name = "nlpie._nlpie_core"

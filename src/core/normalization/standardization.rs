@@ -1,7 +1,7 @@
-use ndarray::{Array1, Array2, Axis};
-use super::error::PreprocessingError;
-use super::utils::ensure_non_empty;
 use super::centering::FitStats;
+use super::utils::ensure_non_empty;
+use crate::errors::PreprocessingError;
+use ndarray::{Array1, Array2, Axis};
 
 /// Standardizes the columns of the given embeddings to have zero mean and unit variance.
 ///
