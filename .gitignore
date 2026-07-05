@@ -17,3 +17,8 @@ wheels/
 # IDE
 .vscode
 /.agents 
+
+# Local files
+docs/*
+.tasks/
+.DS_Store
