@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from functools import wraps
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 # Try importing the compiled binary extension module
 try:
@@ -330,3 +330,184 @@ class EmbeddingPreprocessor:
             The debiased 2D embedding matrix.
         """
         return self._preprocessor.remove_top_principal_components(_to_matrix(embeddings), n_components)
+
+
+# =============================================================================
+# Projection Quality Metrics  (TASK-005)
+# =============================================================================
+
+@_wrap_exceptions
+def trustworthiness(
+    high_dim: MatrixLike,
+    low_dim: MatrixLike,
+    k: int = 10,
+) -> float:
+    """Computes the trustworthiness of a low-dimensional projection.
+
+    Measures whether the K nearest neighbours in the projection space were also
+    close in the original high-dimensional space. A score of 1.0 is perfect.
+
+    Args:
+        high_dim: Embedding matrix in the original space ``(n_samples, d_high)``.
+        low_dim:  Embedding matrix in the projected space ``(n_samples, d_low)``.
+        k:        Number of neighbours to consider (default ``10``).
+
+    Returns:
+        A float in ``[0, 1]``, where ``1.0`` means a perfect projection.
+
+    Raises:
+        PreprocessingError: If shapes are inconsistent or ``k`` is invalid.
+    """
+    return _nlpie_core.trustworthiness(_to_matrix(high_dim), _to_matrix(low_dim), k)
+
+
+@_wrap_exceptions
+def continuity(
+    high_dim: MatrixLike,
+    low_dim: MatrixLike,
+    k: int = 10,
+) -> float:
+    """Computes the continuity of a low-dimensional projection.
+
+    Measures whether the K nearest neighbours in the original space are preserved
+    in the projected space. A score of 1.0 is perfect.
+
+    Args:
+        high_dim: Embedding matrix in the original space ``(n_samples, d_high)``.
+        low_dim:  Embedding matrix in the projected space ``(n_samples, d_low)``.
+        k:        Number of neighbours to consider (default ``10``).
+
+    Returns:
+        A float in ``[0, 1]``, where ``1.0`` means a perfect projection.
+
+    Raises:
+        PreprocessingError: If shapes are inconsistent or ``k`` is invalid.
+    """
+    return _nlpie_core.continuity(_to_matrix(high_dim), _to_matrix(low_dim), k)
+
+
+# =============================================================================
+# Retrieval and Ranking Metrics  (TASK-006)
+# =============================================================================
+
+@_wrap_exceptions
+def recall_at_k(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+    k: int,
+) -> float:
+    """Computes Recall\\@K for a single query.
+
+    Recall\\@K = |relevant ∩ retrieved\\@K| / |relevant|.
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+        k:         Cut-off rank.
+
+    Returns:
+        Recall score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero or ``retrieved`` is empty.
+    """
+    return _nlpie_core.recall_at_k(list(retrieved), list(relevant), k)
+
+
+@_wrap_exceptions
+def precision_at_k(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+    k: int,
+) -> float:
+    """Computes Precision\\@K for a single query.
+
+    Precision\\@K = |relevant ∩ retrieved\\@K| / K.
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+        k:         Cut-off rank.
+
+    Returns:
+        Precision score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero or ``retrieved`` is empty.
+    """
+    return _nlpie_core.precision_at_k(list(retrieved), list(relevant), k)
+
+
+@_wrap_exceptions
+def mean_reciprocal_rank(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+) -> float:
+    """Computes Mean Reciprocal Rank (MRR) for a single query.
+
+    MRR = 1 / rank_of_first_relevant_item, or ``0.0`` if no relevant item appears.
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+
+    Returns:
+        MRR score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``retrieved`` is empty.
+    """
+    return _nlpie_core.mean_reciprocal_rank(list(retrieved), list(relevant))
+
+
+@_wrap_exceptions
+def ndcg_at_k(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+    k: int,
+) -> float:
+    """Computes normalised Discounted Cumulative Gain (nDCG\\@K) for a single query.
+
+    Uses binary relevance judgements (1 if relevant, 0 otherwise).
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+        k:         Cut-off rank.
+
+    Returns:
+        nDCG score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero or ``retrieved`` is empty.
+    """
+    return _nlpie_core.ndcg_at_k(list(retrieved), list(relevant), k)
+
+
+@_wrap_exceptions
+def coverage_at_k(
+    all_retrieved: Sequence[Sequence[int]],
+    all_relevant: Sequence[Sequence[int]],
+    k: int,
+) -> float:
+    """Computes Coverage\\@K across multiple queries.
+
+    Coverage\\@K = fraction of the total relevant-item space that appears in
+    at least one query's top-K retrieved list.
+
+    Args:
+        all_retrieved: One ranked list per query.
+        all_relevant:  One relevant-ID list per query.
+        k:             Cut-off rank.
+
+    Returns:
+        Coverage score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero, lists are mismatched, or empty.
+    """
+    return _nlpie_core.coverage_at_k(
+        [list(r) for r in all_retrieved],
+        [list(r) for r in all_relevant],
+        k,
+    )

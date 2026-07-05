@@ -10,6 +10,15 @@ from ._api import (
     standardize_columns,
     whiten_pca,
     remove_top_principal_components,
+    # Projection quality metrics (TASK-005)
+    trustworthiness,
+    continuity,
+    # Retrieval and ranking metrics (TASK-006)
+    recall_at_k,
+    precision_at_k,
+    mean_reciprocal_rank,
+    ndcg_at_k,
+    coverage_at_k,
 )
 from ._errors import NlpieError, PreprocessingError
 
@@ -23,6 +32,15 @@ __all__ = [
     "standardize_columns",
     "whiten_pca",
     "remove_top_principal_components",
+    # Projection quality metrics (TASK-005)
+    "trustworthiness",
+    "continuity",
+    # Retrieval and ranking metrics (TASK-006)
+    "recall_at_k",
+    "precision_at_k",
+    "mean_reciprocal_rank",
+    "ndcg_at_k",
+    "coverage_at_k",
     "NlpieError",
     "PreprocessingError",
 ]
