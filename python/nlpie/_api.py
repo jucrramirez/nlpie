@@ -120,6 +120,49 @@ def cosine_similarity(lhs: VectorLike, rhs: VectorLike) -> float:
 
 
 @_wrap_exceptions
+def cosine_similarity_matrix(embeddings: MatrixLike, eps: float = 1e-12) -> list[list[float]]:
+    """Computes the cosine similarity matrix for a set of embeddings.
+
+    Args:
+        embeddings: The 2D embedding matrix.
+        eps: Small value to prevent division by zero during normalization.
+
+    Returns:
+        An N x N cosine similarity matrix.
+    """
+    return _nlpie_core.cosine_similarity_matrix(_to_matrix(embeddings), eps)
+
+
+@_wrap_exceptions
+def pearson_correlation(x: VectorLike, y: VectorLike) -> float:
+    """Computes the Pearson correlation coefficient between two vectors.
+
+    Args:
+        x: The first vector.
+        y: The second vector.
+
+    Returns:
+        The Pearson correlation coefficient.
+    """
+    return _nlpie_core.pearson_correlation(_to_vector(x), _to_vector(y))
+
+
+@_wrap_exceptions
+def spearman_correlation(x: VectorLike, y: VectorLike) -> float:
+    """Computes the Spearman rank correlation coefficient between two vectors.
+
+    Args:
+        x: The first vector.
+        y: The second vector.
+
+    Returns:
+        The Spearman rank correlation coefficient.
+    """
+    return _nlpie_core.spearman_correlation(_to_vector(x), _to_vector(y))
+
+
+
+@_wrap_exceptions
 def l2_normalize_rows(embeddings: MatrixLike, eps: float = 1e-12) -> list[list[float]]:
     """Applies L2 normalization to each row of the embedding matrix.
 
