@@ -1,5 +1,9 @@
 # NLPie 🥧
 
+<p align="center">
+  <img src="assets/logo.png" alt="NLPie logo" width="500">
+</p>
+
 > A fast, Rust-based library for evaluating, visualizing, and interpreting NLP data representations.
 
 ![Status: WIP](https://img.shields.io/badge/Status-WIP%20👷🏽♂️-yellow)
