@@ -333,6 +333,58 @@ class EmbeddingPreprocessor:
 
 
 # =============================================================================
+# Clustering Metrics
+# =============================================================================
+
+@_wrap_exceptions
+def adjusted_rand_index(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
+    """Computes the Adjusted Rand Index (ARI)."""
+    return _nlpie_core.adjusted_rand_index(list(labels_true), list(labels_pred))
+
+@_wrap_exceptions
+def normalized_mutual_info(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
+    """Computes the Normalized Mutual Information (NMI)."""
+    return _nlpie_core.normalized_mutual_info(list(labels_true), list(labels_pred))
+
+@_wrap_exceptions
+def purity_score(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
+    """Computes the Purity score."""
+    return _nlpie_core.purity_score(list(labels_true), list(labels_pred))
+
+@_wrap_exceptions
+def calinski_harabasz_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
+    """Computes the Calinski-Harabasz index."""
+    return _nlpie_core.calinski_harabasz_score(_to_matrix(embeddings), list(labels))
+
+@_wrap_exceptions
+def silhouette_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
+    """Computes the mean Silhouette Coefficient."""
+    return _nlpie_core.silhouette_score(_to_matrix(embeddings), list(labels))
+
+# =============================================================================
+# Geometry & Pathology Metrics
+# =============================================================================
+
+@_wrap_exceptions
+def effective_rank(embeddings: MatrixLike) -> float:
+    """Computes the effective rank of an embedding space."""
+    return _nlpie_core.effective_rank(_to_matrix(embeddings))
+
+@_wrap_exceptions
+def similarity_to_global_mean(embeddings: MatrixLike) -> list[float]:
+    """Computes the cosine similarity of each point to the global centroid."""
+    return _nlpie_core.similarity_to_global_mean(_to_matrix(embeddings))
+
+@_wrap_exceptions
+def compute_hubness(embeddings: MatrixLike, k: int = 5) -> Tuple[list[int], float]:
+    """Computes exact K-Nearest Neighbors hubness counts and skewness.
+    
+    Returns:
+        A tuple of (hubness_counts, skewness).
+    """
+    return _nlpie_core.compute_hubness(_to_matrix(embeddings), k)
+
+# =============================================================================
 # Projection Quality Metrics  (TASK-005)
 # =============================================================================
 

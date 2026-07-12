@@ -10,6 +10,20 @@ from ._api import (
     standardize_columns,
     whiten_pca,
     remove_top_principal_components,
+    # Basic metrics
+    cosine_similarity_matrix,
+    pearson_correlation,
+    spearman_correlation,
+    # Clustering metrics
+    adjusted_rand_index,
+    normalized_mutual_info,
+    purity_score,
+    calinski_harabasz_score,
+    silhouette_score,
+    # Geometry and hubness metrics
+    effective_rank,
+    similarity_to_global_mean,
+    compute_hubness,
     # Projection quality metrics (TASK-005)
     trustworthiness,
     continuity,
@@ -32,6 +46,20 @@ __all__ = [
     "standardize_columns",
     "whiten_pca",
     "remove_top_principal_components",
+    # Basic metrics
+    "cosine_similarity_matrix",
+    "pearson_correlation",
+    "spearman_correlation",
+    # Clustering metrics
+    "adjusted_rand_index",
+    "normalized_mutual_info",
+    "purity_score",
+    "calinski_harabasz_score",
+    "silhouette_score",
+    # Geometry and hubness metrics
+    "effective_rank",
+    "similarity_to_global_mean",
+    "compute_hubness",
     # Projection quality metrics (TASK-005)
     "trustworthiness",
     "continuity",
