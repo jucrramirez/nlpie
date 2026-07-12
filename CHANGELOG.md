@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added `python/metrics/quality.py` providing `EmbeddingQualityReport` and multi-model comparison to aggregate intrinsic, clustering, geometry, projection, and retrieval metrics.
+- Added comprehensive Markdown API documentation under `docs/modules/` covering normalization, metrics, and quality reports.
+- Added an end-to-end Jupyter notebook pipeline example at `python/examples/pipeline.ipynb`.
 - Added clustering metrics: Adjusted Rand Index (ARI), Normalized Mutual Information (NMI), Purity, Calinski‑Harabasz index, and Silhouette score.
 - Added geometry and hubness diagnostics: effective rank, similarity to global mean, and hubness index (counts + skewness).
 - Fixed compiler warnings by removing unused imports/variables.
