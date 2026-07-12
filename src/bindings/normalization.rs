@@ -9,7 +9,7 @@ use ndarray::Array2;
 use pyo3::prelude::*;
 
 /// Python-exposed version of `FitStats` holding mean and standard deviation.
-#[pyclass(name = "FitStats")]
+#[pyclass(name = "FitStats", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyFitStats {
     #[pyo3(get)]
@@ -19,7 +19,7 @@ pub struct PyFitStats {
 }
 
 /// Python-exposed version of `WhitenModel` holding PCA projection data.
-#[pyclass(name = "WhitenModel")]
+#[pyclass(name = "WhitenModel", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyWhitenModel {
     #[pyo3(get)]
@@ -66,7 +66,7 @@ fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
 }
 
 /// A convenience preprocessor struct that wraps various normalization routines.
-#[pyclass(name = "EmbeddingPreprocessor")]
+#[pyclass(name = "EmbeddingPreprocessor", from_py_object)]
 #[derive(Clone)]
 pub struct PyEmbeddingPreprocessor {
     inner: EmbeddingPreprocessor,

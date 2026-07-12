@@ -10,10 +10,10 @@ def test_cosine_similarity_matrix():
         [0.7071, 0.7071]
     ])
     sim = cosine_similarity_matrix(x)
-    assert np.allclose(sim[0, 1], 0.0, atol=1e-4)
-    assert np.allclose(sim[0, 2], 0.7071, atol=1e-4)
-    assert np.allclose(sim[1, 2], 0.7071, atol=1e-4)
-    assert np.allclose(sim[0, 0], 1.0, atol=1e-4)
+    assert np.allclose(sim[0][1], 0.0, atol=1e-4)
+    assert np.allclose(sim[0][2], 0.7071, atol=1e-4)
+    assert np.allclose(sim[1][2], 0.7071, atol=1e-4)
+    assert np.allclose(sim[0][0], 1.0, atol=1e-4)
 
 def test_pearson_correlation():
     x = [1.0, 2.0, 3.0, 4.0]
