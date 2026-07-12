@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from functools import wraps
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 # Try importing the compiled binary extension module
 try:
@@ -117,6 +117,49 @@ def cosine_similarity(lhs: VectorLike, rhs: VectorLike) -> float:
         PreprocessingError: If input shapes are invalid or vector length is zero.
     """
     return _nlpie_core.cosine_similarity(_to_vector(lhs), _to_vector(rhs))
+
+
+@_wrap_exceptions
+def cosine_similarity_matrix(embeddings: MatrixLike, eps: float = 1e-12) -> list[list[float]]:
+    """Computes the cosine similarity matrix for a set of embeddings.
+
+    Args:
+        embeddings: The 2D embedding matrix.
+        eps: Small value to prevent division by zero during normalization.
+
+    Returns:
+        An N x N cosine similarity matrix.
+    """
+    return _nlpie_core.cosine_similarity_matrix(_to_matrix(embeddings), eps)
+
+
+@_wrap_exceptions
+def pearson_correlation(x: VectorLike, y: VectorLike) -> float:
+    """Computes the Pearson correlation coefficient between two vectors.
+
+    Args:
+        x: The first vector.
+        y: The second vector.
+
+    Returns:
+        The Pearson correlation coefficient.
+    """
+    return _nlpie_core.pearson_correlation(_to_vector(x), _to_vector(y))
+
+
+@_wrap_exceptions
+def spearman_correlation(x: VectorLike, y: VectorLike) -> float:
+    """Computes the Spearman rank correlation coefficient between two vectors.
+
+    Args:
+        x: The first vector.
+        y: The second vector.
+
+    Returns:
+        The Spearman rank correlation coefficient.
+    """
+    return _nlpie_core.spearman_correlation(_to_vector(x), _to_vector(y))
+
 
 
 @_wrap_exceptions
@@ -287,3 +330,236 @@ class EmbeddingPreprocessor:
             The debiased 2D embedding matrix.
         """
         return self._preprocessor.remove_top_principal_components(_to_matrix(embeddings), n_components)
+
+
+# =============================================================================
+# Clustering Metrics
+# =============================================================================
+
+@_wrap_exceptions
+def adjusted_rand_index(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
+    """Computes the Adjusted Rand Index (ARI)."""
+    return _nlpie_core.adjusted_rand_index(list(labels_true), list(labels_pred))
+
+@_wrap_exceptions
+def normalized_mutual_info(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
+    """Computes the Normalized Mutual Information (NMI)."""
+    return _nlpie_core.normalized_mutual_info(list(labels_true), list(labels_pred))
+
+@_wrap_exceptions
+def purity_score(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
+    """Computes the Purity score."""
+    return _nlpie_core.purity_score(list(labels_true), list(labels_pred))
+
+@_wrap_exceptions
+def calinski_harabasz_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
+    """Computes the Calinski-Harabasz index."""
+    return _nlpie_core.calinski_harabasz_score(_to_matrix(embeddings), list(labels))
+
+@_wrap_exceptions
+def silhouette_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
+    """Computes the mean Silhouette Coefficient."""
+    return _nlpie_core.silhouette_score(_to_matrix(embeddings), list(labels))
+
+# =============================================================================
+# Geometry & Pathology Metrics
+# =============================================================================
+
+@_wrap_exceptions
+def effective_rank(embeddings: MatrixLike) -> float:
+    """Computes the effective rank of an embedding space."""
+    return _nlpie_core.effective_rank(_to_matrix(embeddings))
+
+@_wrap_exceptions
+def similarity_to_global_mean(embeddings: MatrixLike) -> list[float]:
+    """Computes the cosine similarity of each point to the global centroid."""
+    return _nlpie_core.similarity_to_global_mean(_to_matrix(embeddings))
+
+@_wrap_exceptions
+def compute_hubness(embeddings: MatrixLike, k: int = 5) -> Tuple[list[int], float]:
+    """Computes exact K-Nearest Neighbors hubness counts and skewness.
+    
+    Returns:
+        A tuple of (hubness_counts, skewness).
+    """
+    return _nlpie_core.compute_hubness(_to_matrix(embeddings), k)
+
+# =============================================================================
+# Projection Quality Metrics  (TASK-005)
+# =============================================================================
+
+@_wrap_exceptions
+def trustworthiness(
+    high_dim: MatrixLike,
+    low_dim: MatrixLike,
+    k: int = 10,
+) -> float:
+    """Computes the trustworthiness of a low-dimensional projection.
+
+    Measures whether the K nearest neighbours in the projection space were also
+    close in the original high-dimensional space. A score of 1.0 is perfect.
+
+    Args:
+        high_dim: Embedding matrix in the original space ``(n_samples, d_high)``.
+        low_dim:  Embedding matrix in the projected space ``(n_samples, d_low)``.
+        k:        Number of neighbours to consider (default ``10``).
+
+    Returns:
+        A float in ``[0, 1]``, where ``1.0`` means a perfect projection.
+
+    Raises:
+        PreprocessingError: If shapes are inconsistent or ``k`` is invalid.
+    """
+    return _nlpie_core.trustworthiness(_to_matrix(high_dim), _to_matrix(low_dim), k)
+
+
+@_wrap_exceptions
+def continuity(
+    high_dim: MatrixLike,
+    low_dim: MatrixLike,
+    k: int = 10,
+) -> float:
+    """Computes the continuity of a low-dimensional projection.
+
+    Measures whether the K nearest neighbours in the original space are preserved
+    in the projected space. A score of 1.0 is perfect.
+
+    Args:
+        high_dim: Embedding matrix in the original space ``(n_samples, d_high)``.
+        low_dim:  Embedding matrix in the projected space ``(n_samples, d_low)``.
+        k:        Number of neighbours to consider (default ``10``).
+
+    Returns:
+        A float in ``[0, 1]``, where ``1.0`` means a perfect projection.
+
+    Raises:
+        PreprocessingError: If shapes are inconsistent or ``k`` is invalid.
+    """
+    return _nlpie_core.continuity(_to_matrix(high_dim), _to_matrix(low_dim), k)
+
+
+# =============================================================================
+# Retrieval and Ranking Metrics  (TASK-006)
+# =============================================================================
+
+@_wrap_exceptions
+def recall_at_k(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+    k: int,
+) -> float:
+    """Computes Recall\\@K for a single query.
+
+    Recall\\@K = |relevant ∩ retrieved\\@K| / |relevant|.
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+        k:         Cut-off rank.
+
+    Returns:
+        Recall score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero or ``retrieved`` is empty.
+    """
+    return _nlpie_core.recall_at_k(list(retrieved), list(relevant), k)
+
+
+@_wrap_exceptions
+def precision_at_k(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+    k: int,
+) -> float:
+    """Computes Precision\\@K for a single query.
+
+    Precision\\@K = |relevant ∩ retrieved\\@K| / K.
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+        k:         Cut-off rank.
+
+    Returns:
+        Precision score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero or ``retrieved`` is empty.
+    """
+    return _nlpie_core.precision_at_k(list(retrieved), list(relevant), k)
+
+
+@_wrap_exceptions
+def mean_reciprocal_rank(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+) -> float:
+    """Computes Mean Reciprocal Rank (MRR) for a single query.
+
+    MRR = 1 / rank_of_first_relevant_item, or ``0.0`` if no relevant item appears.
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+
+    Returns:
+        MRR score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``retrieved`` is empty.
+    """
+    return _nlpie_core.mean_reciprocal_rank(list(retrieved), list(relevant))
+
+
+@_wrap_exceptions
+def ndcg_at_k(
+    retrieved: Sequence[int],
+    relevant: Sequence[int],
+    k: int,
+) -> float:
+    """Computes normalised Discounted Cumulative Gain (nDCG\\@K) for a single query.
+
+    Uses binary relevance judgements (1 if relevant, 0 otherwise).
+
+    Args:
+        retrieved: Ranked list of document IDs, most-relevant first.
+        relevant:  Ground-truth relevant document IDs.
+        k:         Cut-off rank.
+
+    Returns:
+        nDCG score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero or ``retrieved`` is empty.
+    """
+    return _nlpie_core.ndcg_at_k(list(retrieved), list(relevant), k)
+
+
+@_wrap_exceptions
+def coverage_at_k(
+    all_retrieved: Sequence[Sequence[int]],
+    all_relevant: Sequence[Sequence[int]],
+    k: int,
+) -> float:
+    """Computes Coverage\\@K across multiple queries.
+
+    Coverage\\@K = fraction of the total relevant-item space that appears in
+    at least one query's top-K retrieved list.
+
+    Args:
+        all_retrieved: One ranked list per query.
+        all_relevant:  One relevant-ID list per query.
+        k:             Cut-off rank.
+
+    Returns:
+        Coverage score in ``[0, 1]``.
+
+    Raises:
+        PreprocessingError: If ``k`` is zero, lists are mismatched, or empty.
+    """
+    return _nlpie_core.coverage_at_k(
+        [list(r) for r in all_retrieved],
+        [list(r) for r in all_relevant],
+        k,
+    )

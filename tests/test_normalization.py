@@ -114,5 +114,5 @@ def test_preprocessor_class():
         preprocessor.mean_center([])
 
     # Mismatched row lengths error
-    with pytest.raises(TypeError):
+    with pytest.raises(PreprocessingError):
         preprocessor.mean_center([[1.0, 2.0], [3.0]])

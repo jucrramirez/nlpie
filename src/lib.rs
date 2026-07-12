@@ -35,6 +35,31 @@ mod python_module {
             m
         )?)?;
 
+        m.add_function(wrap_pyfunction!(bindings::metrics::cosine_similarity_matrix, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::pearson_correlation, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::spearman_correlation, m)?)?;
+
+        m.add_function(wrap_pyfunction!(bindings::metrics::adjusted_rand_index, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::normalized_mutual_info, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::purity_score, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::calinski_harabasz_score, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::silhouette_score, m)?)?;
+
+        m.add_function(wrap_pyfunction!(bindings::metrics::effective_rank, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::similarity_to_global_mean, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::compute_hubness, m)?)?;
+
+        // Projection quality metrics (TASK-005)
+        m.add_function(wrap_pyfunction!(bindings::metrics::trustworthiness, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::continuity, m)?)?;
+
+        // Retrieval and ranking metrics (TASK-006)
+        m.add_function(wrap_pyfunction!(bindings::metrics::recall_at_k, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::precision_at_k, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::mean_reciprocal_rank, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::ndcg_at_k, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::coverage_at_k, m)?)?;
+
         Ok(())
     }
 }
