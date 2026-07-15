@@ -8,10 +8,12 @@ name = "_nlpie_core"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-extension-module = ["dep:pyo3", "pyo3/extension-module"]
+extension-module = ["dep:pyo3", "pyo3/extension-module", "dep:numpy"]
 
 [dependencies]
 pyo3 = { version = "0.28.3", optional = true }
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"
+numpy = { version = "0.28", optional = true }
+rayon = "1.10"
 thiserror = "2.0.18"

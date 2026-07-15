@@ -28,32 +28,13 @@ use crate::core::metrics::retrieval::ranking::{
 
 use crate::core::normalization::DEFAULT_EPS;
 use ndarray::Array2;
+use numpy::PyReadonlyArray2;
 use pyo3::prelude::*;
 
-/// Converts a Python 2D nested list (`Vec<Vec<f32>>`) to a 2D ndarray (`Array2<f32>`).
-fn to_ndarray(vec: Vec<Vec<f32>>) -> PyResult<Array2<f32>> {
-    if vec.is_empty() {
-        return Ok(Array2::zeros((0, 0)));
-    }
-    let nrows = vec.len();
-    let ncols = vec[0].len();
-    if ncols == 0 {
-        return Ok(Array2::zeros((nrows, 0)));
-    }
-    let mut flat = Vec::with_capacity(nrows * ncols);
-    for row in vec {
-        if row.len() != ncols {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "expected a 2D embedding matrix with consistent row lengths",
-            ));
-        }
-        flat.extend(row);
-    }
-    Array2::from_shape_vec((nrows, ncols), flat)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+fn to_ndarray(py_array: PyReadonlyArray2<f32>) -> Array2<f32> {
+    py_array.as_array().to_owned()
 }
 
-/// Converts a 2D ndarray back to a nested list.
 fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
     let mut vec = Vec::with_capacity(arr.nrows());
     for row in arr.rows() {
@@ -62,30 +43,26 @@ fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
     vec
 }
 
-// ================= Basic Metrics =================
-
-/// Computes the N x N cosine similarity matrix for an N x D embedding matrix.
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps=DEFAULT_EPS))]
-pub fn cosine_similarity_matrix(embeddings: Vec<Vec<f32>>, eps: f32) -> PyResult<Vec<Vec<f32>>> {
-    let arr = to_ndarray(embeddings)?;
+pub fn cosine_similarity_matrix(
+    embeddings: PyReadonlyArray2<f32>,
+    eps: f32,
+) -> PyResult<Vec<Vec<f32>>> {
+    let arr = to_ndarray(embeddings);
     let sim_matrix = core_cosine_similarity_matrix(&arr, eps);
     Ok(to_vec(sim_matrix))
 }
 
-/// Computes the Pearson correlation coefficient between two 1D vectors.
 #[pyfunction]
 pub fn pearson_correlation(x: Vec<f32>, y: Vec<f32>) -> PyResult<f32> {
     core_pearson_correlation(&x, &y).map_err(Into::into)
 }
 
-/// Computes the Spearman rank correlation coefficient between two 1D vectors.
 #[pyfunction]
 pub fn spearman_correlation(x: Vec<f32>, y: Vec<f32>) -> PyResult<f32> {
     core_spearman_correlation(&x, &y).map_err(Into::into)
 }
-
-// ================= Clustering Metrics =================
 
 #[pyfunction]
 pub fn adjusted_rand_index(labels_true: Vec<i32>, labels_pred: Vec<i32>) -> PyResult<f64> {
@@ -103,79 +80,64 @@ pub fn purity_score(labels_true: Vec<i32>, labels_pred: Vec<i32>) -> PyResult<f6
 }
 
 #[pyfunction]
-pub fn calinski_harabasz_score(embeddings: Vec<Vec<f32>>, labels: Vec<i32>) -> PyResult<f32> {
-    let arr = to_ndarray(embeddings)?;
+pub fn calinski_harabasz_score(
+    embeddings: PyReadonlyArray2<f32>,
+    labels: Vec<i32>,
+) -> PyResult<f32> {
+    let arr = to_ndarray(embeddings);
     core_ch_score(&arr, &labels).map_err(Into::into)
 }
 
 #[pyfunction]
-pub fn silhouette_score(embeddings: Vec<Vec<f32>>, labels: Vec<i32>) -> PyResult<f32> {
-    let arr = to_ndarray(embeddings)?;
+pub fn silhouette_score(embeddings: PyReadonlyArray2<f32>, labels: Vec<i32>) -> PyResult<f32> {
+    let arr = to_ndarray(embeddings);
     core_silhouette(&arr, &labels).map_err(Into::into)
 }
 
-// ================= Geometry & Hubness Metrics =================
-
 #[pyfunction]
-pub fn effective_rank(embeddings: Vec<Vec<f32>>) -> PyResult<f32> {
-    let arr = to_ndarray(embeddings)?;
+pub fn effective_rank(embeddings: PyReadonlyArray2<f32>) -> PyResult<f32> {
+    let arr = to_ndarray(embeddings);
     let (_, eigenvalues) = core_cov_eig(&arr)?;
     core_effective_rank(&eigenvalues).map_err(Into::into)
 }
 
 #[pyfunction]
-pub fn similarity_to_global_mean(embeddings: Vec<Vec<f32>>) -> PyResult<Vec<f32>> {
-    let arr = to_ndarray(embeddings)?;
+pub fn similarity_to_global_mean(embeddings: PyReadonlyArray2<f32>) -> PyResult<Vec<f32>> {
+    let arr = to_ndarray(embeddings);
     let sims = core_sim_mean(&arr)?;
     Ok(sims.to_vec())
 }
 
 #[pyfunction]
-pub fn compute_hubness(embeddings: Vec<Vec<f32>>, k: usize) -> PyResult<(Vec<usize>, f32)> {
-    let arr = to_ndarray(embeddings)?;
+pub fn compute_hubness(embeddings: PyReadonlyArray2<f32>, k: usize) -> PyResult<(Vec<usize>, f32)> {
+    let arr = to_ndarray(embeddings);
     core_hubness(&arr, k).map_err(Into::into)
 }
 
-// ================= Projection Quality Metrics =================
-
-/// Computes trustworthiness of a low-dimensional projection.
-///
-/// Measures whether K nearest neighbours in the projection were also neighbours
-/// in the original space. Returns a score in [0, 1] (1 = perfect).
 #[pyfunction]
 #[pyo3(signature = (high_dim, low_dim, k = 10))]
 pub fn trustworthiness(
-    high_dim: Vec<Vec<f32>>,
-    low_dim: Vec<Vec<f32>>,
+    high_dim: PyReadonlyArray2<f32>,
+    low_dim: PyReadonlyArray2<f32>,
     k: usize,
 ) -> PyResult<f32> {
-    let high = to_ndarray(high_dim)?;
-    let low = to_ndarray(low_dim)?;
+    let high = to_ndarray(high_dim);
+    let low = to_ndarray(low_dim);
     core_trustworthiness(&high, &low, k).map_err(Into::into)
 }
 
-/// Computes continuity of a low-dimensional projection.
-///
-/// Measures whether K nearest neighbours in the original space are preserved
-/// in the projection. Returns a score in [0, 1] (1 = perfect).
 #[pyfunction]
 #[pyo3(signature = (high_dim, low_dim, k = 10))]
 pub fn continuity(
-    high_dim: Vec<Vec<f32>>,
-    low_dim: Vec<Vec<f32>>,
+    high_dim: PyReadonlyArray2<f32>,
+    low_dim: PyReadonlyArray2<f32>,
     k: usize,
 ) -> PyResult<f32> {
-    let high = to_ndarray(high_dim)?;
-    let low = to_ndarray(low_dim)?;
+    let high = to_ndarray(high_dim);
+    let low = to_ndarray(low_dim);
     core_continuity(&high, &low, k).map_err(Into::into)
 }
 
-// ================= Retrieval & Ranking Metrics =================
-
-/// Computes Recall\@K for a single query.
-///
-/// `retrieved` is a ranked list of document IDs (most-relevant first).
-/// `relevant` is the ground-truth set of relevant document IDs.
 #[pyfunction]
 pub fn recall_at_k(
     retrieved: Vec<usize>,
@@ -185,7 +147,6 @@ pub fn recall_at_k(
     core_recall_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
-/// Computes Precision\@K for a single query.
 #[pyfunction]
 pub fn precision_at_k(
     retrieved: Vec<usize>,
@@ -195,17 +156,11 @@ pub fn precision_at_k(
     core_precision_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
-/// Computes Mean Reciprocal Rank (MRR) for a single query.
-///
-/// Returns 1 / rank_of_first_relevant_item, or 0 if no relevant item is found.
 #[pyfunction]
 pub fn mean_reciprocal_rank(retrieved: Vec<usize>, relevant: Vec<usize>) -> PyResult<f64> {
     core_mrr(&retrieved, &relevant).map_err(Into::into)
 }
 
-/// Computes normalised Discounted Cumulative Gain (nDCG\@K) for a single query.
-///
-/// Uses binary relevance judgements.
 #[pyfunction]
 pub fn ndcg_at_k(
     retrieved: Vec<usize>,
@@ -215,10 +170,6 @@ pub fn ndcg_at_k(
     core_ndcg_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
-/// Computes Coverage\@K across all queries.
-///
-/// `all_retrieved` and `all_relevant` must have the same length (one entry per query).
-/// Returns the fraction of the total relevant item space covered in at least one top-K list.
 #[pyfunction]
 pub fn coverage_at_k(
     all_retrieved: Vec<Vec<usize>>,
@@ -227,4 +178,3 @@ pub fn coverage_at_k(
 ) -> PyResult<f64> {
     core_coverage_at_k(&all_retrieved, &all_relevant, k).map_err(Into::into)
 }
-
