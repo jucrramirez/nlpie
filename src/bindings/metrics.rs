@@ -43,6 +43,9 @@ fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
     vec
 }
 
+// ================= Basic Metrics =================
+
+/// Computes the N x N cosine similarity matrix for an N x D embedding matrix.
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps=DEFAULT_EPS))]
 pub fn cosine_similarity_matrix(
@@ -54,15 +57,19 @@ pub fn cosine_similarity_matrix(
     Ok(to_vec(sim_matrix))
 }
 
+/// Computes the Pearson correlation coefficient between two 1D vectors.
 #[pyfunction]
 pub fn pearson_correlation(x: Vec<f32>, y: Vec<f32>) -> PyResult<f32> {
     core_pearson_correlation(&x, &y).map_err(Into::into)
 }
 
+/// Computes the Spearman rank correlation coefficient between two 1D vectors.
 #[pyfunction]
 pub fn spearman_correlation(x: Vec<f32>, y: Vec<f32>) -> PyResult<f32> {
     core_spearman_correlation(&x, &y).map_err(Into::into)
 }
+
+// ================= Clustering Metrics =================
 
 #[pyfunction]
 pub fn adjusted_rand_index(labels_true: Vec<i32>, labels_pred: Vec<i32>) -> PyResult<f64> {
@@ -94,6 +101,8 @@ pub fn silhouette_score(embeddings: PyReadonlyArray2<f32>, labels: Vec<i32>) -> 
     core_silhouette(&arr, &labels).map_err(Into::into)
 }
 
+// ================= Geometry & Hubness Metrics =================
+
 #[pyfunction]
 pub fn effective_rank(embeddings: PyReadonlyArray2<f32>) -> PyResult<f32> {
     let arr = to_ndarray(embeddings);
@@ -114,6 +123,12 @@ pub fn compute_hubness(embeddings: PyReadonlyArray2<f32>, k: usize) -> PyResult<
     core_hubness(&arr, k).map_err(Into::into)
 }
 
+// ================= Projection Quality Metrics =================
+
+/// Computes trustworthiness of a low-dimensional projection.
+///
+/// Measures whether K nearest neighbours in the projection were also neighbours
+/// in the original space. Returns a score in [0, 1] (1 = perfect).
 #[pyfunction]
 #[pyo3(signature = (high_dim, low_dim, k = 10))]
 pub fn trustworthiness(
@@ -126,6 +141,10 @@ pub fn trustworthiness(
     core_trustworthiness(&high, &low, k).map_err(Into::into)
 }
 
+/// Computes continuity of a low-dimensional projection.
+///
+/// Measures whether K nearest neighbours in the original space are preserved
+/// in the projection. Returns a score in [0, 1] (1 = perfect).
 #[pyfunction]
 #[pyo3(signature = (high_dim, low_dim, k = 10))]
 pub fn continuity(
@@ -138,6 +157,12 @@ pub fn continuity(
     core_continuity(&high, &low, k).map_err(Into::into)
 }
 
+// ================= Retrieval & Ranking Metrics =================
+
+/// Computes Recall\@K for a single query.
+///
+/// `retrieved` is a ranked list of document IDs (most-relevant first).
+/// `relevant` is the ground-truth set of relevant document IDs.
 #[pyfunction]
 pub fn recall_at_k(
     retrieved: Vec<usize>,
@@ -147,6 +172,7 @@ pub fn recall_at_k(
     core_recall_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
+/// Computes Precision\@K for a single query.
 #[pyfunction]
 pub fn precision_at_k(
     retrieved: Vec<usize>,
@@ -156,11 +182,17 @@ pub fn precision_at_k(
     core_precision_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
+/// Computes Mean Reciprocal Rank (MRR) for a single query.
+///
+/// Returns 1 / rank_of_first_relevant_item, or 0 if no relevant item is found.
 #[pyfunction]
 pub fn mean_reciprocal_rank(retrieved: Vec<usize>, relevant: Vec<usize>) -> PyResult<f64> {
     core_mrr(&retrieved, &relevant).map_err(Into::into)
 }
 
+/// Computes normalised Discounted Cumulative Gain (nDCG\@K) for a single query.
+///
+/// Uses binary relevance judgements.
 #[pyfunction]
 pub fn ndcg_at_k(
     retrieved: Vec<usize>,
@@ -170,6 +202,10 @@ pub fn ndcg_at_k(
     core_ndcg_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
+/// Computes Coverage\@K across all queries.
+///
+/// `all_retrieved` and `all_relevant` must have the same length (one entry per query).
+/// Returns the fraction of the total relevant item space covered in at least one top-K list.
 #[pyfunction]
 pub fn coverage_at_k(
     all_retrieved: Vec<Vec<usize>>,

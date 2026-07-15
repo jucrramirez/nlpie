@@ -21,6 +21,7 @@ fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
     vec
 }
 
+/// Python-exposed version of `FitStats` holding mean and standard deviation.
 #[pyclass(name = "FitStats", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyFitStats {
@@ -30,6 +31,7 @@ pub struct PyFitStats {
     pub std: Option<Vec<f32>>,
 }
 
+/// Python-exposed version of `WhitenModel` holding PCA projection data.
 #[pyclass(name = "WhitenModel", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyWhitenModel {
@@ -43,6 +45,7 @@ pub struct PyWhitenModel {
     pub eps: f32,
 }
 
+/// A convenience preprocessor struct that wraps various normalization routines.
 #[pyclass(name = "EmbeddingPreprocessor", from_py_object)]
 #[derive(Clone)]
 pub struct PyEmbeddingPreprocessor {
@@ -59,12 +62,14 @@ impl PyEmbeddingPreprocessor {
         }
     }
 
+    /// Applies L2 normalization to each row of the embedding matrix.
     pub fn l2_normalize_rows(&self, embeddings: PyReadonlyArray2<f32>) -> PyResult<Vec<Vec<f32>>> {
         let arr = to_ndarray(embeddings);
         let result = self.inner.l2_normalize_rows(&arr);
         Ok(to_vec(result))
     }
 
+    /// Centers the embedding matrix by subtracting the mean of each column.
     pub fn mean_center(
         &self,
         embeddings: PyReadonlyArray2<f32>,
@@ -78,6 +83,7 @@ impl PyEmbeddingPreprocessor {
         Ok((to_vec(centered), py_stats))
     }
 
+    /// Standardizes the embeddings (zero mean, unit variance for each column).
     pub fn standardize_columns(
         &self,
         embeddings: PyReadonlyArray2<f32>,
@@ -91,6 +97,7 @@ impl PyEmbeddingPreprocessor {
         Ok((to_vec(standardized), py_stats))
     }
 
+    /// Applies PCA whitening to the embeddings.
     #[pyo3(signature = (embeddings, n_components = None))]
     pub fn whiten_pca(
         &self,
@@ -108,6 +115,7 @@ impl PyEmbeddingPreprocessor {
         Ok((to_vec(whitened), py_model))
     }
 
+    /// Removes the top principal components from the embeddings.
     pub fn remove_top_principal_components(
         &self,
         embeddings: PyReadonlyArray2<f32>,
@@ -120,6 +128,8 @@ impl PyEmbeddingPreprocessor {
         Ok(to_vec(result))
     }
 }
+
+/// Standalone bindings for functional execution.
 
 #[pyfunction]
 #[pyo3(signature = (lhs, rhs))]
