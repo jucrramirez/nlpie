@@ -6,7 +6,20 @@ use crate::core::normalization::{
     EmbeddingPreprocessor, DEFAULT_EPS,
 };
 use ndarray::Array2;
+use numpy::PyReadonlyArray2;
 use pyo3::prelude::*;
+
+fn to_ndarray(py_array: PyReadonlyArray2<f32>) -> Array2<f32> {
+    py_array.as_array().to_owned()
+}
+
+fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
+    let mut vec = Vec::with_capacity(arr.nrows());
+    for row in arr.rows() {
+        vec.push(row.to_vec());
+    }
+    vec
+}
 
 /// Python-exposed version of `FitStats` holding mean and standard deviation.
 #[pyclass(name = "FitStats", from_py_object)]
@@ -32,39 +45,6 @@ pub struct PyWhitenModel {
     pub eps: f32,
 }
 
-/// Converts a Python 2D nested list (`Vec<Vec<f32>>`) to a 2D ndarray (`Array2<f32>`),
-/// returning a PyErr if shape consistency is violated.
-fn to_ndarray(vec: Vec<Vec<f32>>) -> PyResult<Array2<f32>> {
-    if vec.is_empty() {
-        return Ok(Array2::zeros((0, 0)));
-    }
-    let nrows = vec.len();
-    let ncols = vec[0].len();
-    if ncols == 0 {
-        return Ok(Array2::zeros((nrows, 0)));
-    }
-    let mut flat = Vec::with_capacity(nrows * ncols);
-    for row in vec {
-        if row.len() != ncols {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "expected a 2D embedding matrix with consistent row lengths",
-            ));
-        }
-        flat.extend(row);
-    }
-    Array2::from_shape_vec((nrows, ncols), flat)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-}
-
-/// Converts a 2D ndarray back to a nested list.
-fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
-    let mut vec = Vec::with_capacity(arr.nrows());
-    for row in arr.rows() {
-        vec.push(row.to_vec());
-    }
-    vec
-}
-
 /// A convenience preprocessor struct that wraps various normalization routines.
 #[pyclass(name = "EmbeddingPreprocessor", from_py_object)]
 #[derive(Clone)]
@@ -83,15 +63,18 @@ impl PyEmbeddingPreprocessor {
     }
 
     /// Applies L2 normalization to each row of the embedding matrix.
-    pub fn l2_normalize_rows(&self, embeddings: Vec<Vec<f32>>) -> PyResult<Vec<Vec<f32>>> {
-        let arr = to_ndarray(embeddings)?;
+    pub fn l2_normalize_rows(&self, embeddings: PyReadonlyArray2<f32>) -> PyResult<Vec<Vec<f32>>> {
+        let arr = to_ndarray(embeddings);
         let result = self.inner.l2_normalize_rows(&arr);
         Ok(to_vec(result))
     }
 
     /// Centers the embedding matrix by subtracting the mean of each column.
-    pub fn mean_center(&self, embeddings: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
-        let arr = to_ndarray(embeddings)?;
+    pub fn mean_center(
+        &self,
+        embeddings: PyReadonlyArray2<f32>,
+    ) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
+        let arr = to_ndarray(embeddings);
         let (centered, stats) = self.inner.mean_center(&arr)?;
         let py_stats = PyFitStats {
             mean: stats.mean.to_vec(),
@@ -103,9 +86,9 @@ impl PyEmbeddingPreprocessor {
     /// Standardizes the embeddings (zero mean, unit variance for each column).
     pub fn standardize_columns(
         &self,
-        embeddings: Vec<Vec<f32>>,
+        embeddings: PyReadonlyArray2<f32>,
     ) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
-        let arr = to_ndarray(embeddings)?;
+        let arr = to_ndarray(embeddings);
         let (standardized, stats) = self.inner.standardize_columns(&arr)?;
         let py_stats = PyFitStats {
             mean: stats.mean.to_vec(),
@@ -118,10 +101,10 @@ impl PyEmbeddingPreprocessor {
     #[pyo3(signature = (embeddings, n_components = None))]
     pub fn whiten_pca(
         &self,
-        embeddings: Vec<Vec<f32>>,
+        embeddings: PyReadonlyArray2<f32>,
         n_components: Option<usize>,
     ) -> PyResult<(Vec<Vec<f32>>, PyWhitenModel)> {
-        let arr = to_ndarray(embeddings)?;
+        let arr = to_ndarray(embeddings);
         let (whitened, model) = self.inner.whiten_pca(&arr, n_components)?;
         let py_model = PyWhitenModel {
             mean: model.mean.to_vec(),
@@ -135,10 +118,10 @@ impl PyEmbeddingPreprocessor {
     /// Removes the top principal components from the embeddings.
     pub fn remove_top_principal_components(
         &self,
-        embeddings: Vec<Vec<f32>>,
+        embeddings: PyReadonlyArray2<f32>,
         n_components: usize,
     ) -> PyResult<Vec<Vec<f32>>> {
-        let arr = to_ndarray(embeddings)?;
+        let arr = to_ndarray(embeddings);
         let result = self
             .inner
             .remove_top_principal_components(&arr, n_components)?;
@@ -156,16 +139,21 @@ pub fn cosine_similarity(lhs: Vec<f32>, rhs: Vec<f32>) -> PyResult<f32> {
 
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps = DEFAULT_EPS))]
-pub fn l2_normalize_rows(embeddings: Vec<Vec<f32>>, eps: f32) -> PyResult<Vec<Vec<f32>>> {
-    let arr = to_ndarray(embeddings)?;
+pub fn l2_normalize_rows(
+    embeddings: PyReadonlyArray2<f32>,
+    eps: f32,
+) -> PyResult<Vec<Vec<f32>>> {
+    let arr = to_ndarray(embeddings);
     let normalized = core_l2_normalize_rows(&arr, eps);
     Ok(to_vec(normalized))
 }
 
 #[pyfunction]
 #[pyo3(signature = (embeddings))]
-pub fn mean_center(embeddings: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
-    let arr = to_ndarray(embeddings)?;
+pub fn mean_center(
+    embeddings: PyReadonlyArray2<f32>,
+) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
+    let arr = to_ndarray(embeddings);
     let (centered, stats) = core_mean_center(&arr)?;
     let py_stats = PyFitStats {
         mean: stats.mean.to_vec(),
@@ -177,10 +165,10 @@ pub fn mean_center(embeddings: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<f32>>, PyFitS
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps = DEFAULT_EPS))]
 pub fn standardize_columns(
-    embeddings: Vec<Vec<f32>>,
+    embeddings: PyReadonlyArray2<f32>,
     eps: f32,
 ) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
-    let arr = to_ndarray(embeddings)?;
+    let arr = to_ndarray(embeddings);
     let (standardized, stats) = core_standardize_columns(&arr, eps)?;
     let py_stats = PyFitStats {
         mean: stats.mean.to_vec(),
@@ -192,11 +180,11 @@ pub fn standardize_columns(
 #[pyfunction]
 #[pyo3(signature = (embeddings, n_components = None, eps = DEFAULT_EPS))]
 pub fn whiten_pca(
-    embeddings: Vec<Vec<f32>>,
+    embeddings: PyReadonlyArray2<f32>,
     n_components: Option<usize>,
     eps: f32,
 ) -> PyResult<(Vec<Vec<f32>>, PyWhitenModel)> {
-    let arr = to_ndarray(embeddings)?;
+    let arr = to_ndarray(embeddings);
     let (whitened, model) = core_whiten_pca(&arr, n_components, eps)?;
     let py_model = PyWhitenModel {
         mean: model.mean.to_vec(),
@@ -210,10 +198,10 @@ pub fn whiten_pca(
 #[pyfunction]
 #[pyo3(signature = (embeddings, n_components))]
 pub fn remove_top_principal_components(
-    embeddings: Vec<Vec<f32>>,
+    embeddings: PyReadonlyArray2<f32>,
     n_components: usize,
 ) -> PyResult<Vec<Vec<f32>>> {
-    let arr = to_ndarray(embeddings)?;
+    let arr = to_ndarray(embeddings);
     let result = core_remove_top_principal_components(&arr, n_components)?;
     Ok(to_vec(result))
 }

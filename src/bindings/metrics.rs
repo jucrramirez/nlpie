@@ -28,32 +28,13 @@ use crate::core::metrics::retrieval::ranking::{
 
 use crate::core::normalization::DEFAULT_EPS;
 use ndarray::Array2;
+use numpy::PyReadonlyArray2;
 use pyo3::prelude::*;
 
-/// Converts a Python 2D nested list (`Vec<Vec<f32>>`) to a 2D ndarray (`Array2<f32>`).
-fn to_ndarray(vec: Vec<Vec<f32>>) -> PyResult<Array2<f32>> {
-    if vec.is_empty() {
-        return Ok(Array2::zeros((0, 0)));
-    }
-    let nrows = vec.len();
-    let ncols = vec[0].len();
-    if ncols == 0 {
-        return Ok(Array2::zeros((nrows, 0)));
-    }
-    let mut flat = Vec::with_capacity(nrows * ncols);
-    for row in vec {
-        if row.len() != ncols {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "expected a 2D embedding matrix with consistent row lengths",
-            ));
-        }
-        flat.extend(row);
-    }
-    Array2::from_shape_vec((nrows, ncols), flat)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+fn to_ndarray(py_array: PyReadonlyArray2<f32>) -> Array2<f32> {
+    py_array.as_array().to_owned()
 }
 
-/// Converts a 2D ndarray back to a nested list.
 fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
     let mut vec = Vec::with_capacity(arr.nrows());
     for row in arr.rows() {
@@ -67,8 +48,11 @@ fn to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
 /// Computes the N x N cosine similarity matrix for an N x D embedding matrix.
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps=DEFAULT_EPS))]
-pub fn cosine_similarity_matrix(embeddings: Vec<Vec<f32>>, eps: f32) -> PyResult<Vec<Vec<f32>>> {
-    let arr = to_ndarray(embeddings)?;
+pub fn cosine_similarity_matrix(
+    embeddings: PyReadonlyArray2<f32>,
+    eps: f32,
+) -> PyResult<Vec<Vec<f32>>> {
+    let arr = to_ndarray(embeddings);
     let sim_matrix = core_cosine_similarity_matrix(&arr, eps);
     Ok(to_vec(sim_matrix))
 }
@@ -103,36 +87,39 @@ pub fn purity_score(labels_true: Vec<i32>, labels_pred: Vec<i32>) -> PyResult<f6
 }
 
 #[pyfunction]
-pub fn calinski_harabasz_score(embeddings: Vec<Vec<f32>>, labels: Vec<i32>) -> PyResult<f32> {
-    let arr = to_ndarray(embeddings)?;
+pub fn calinski_harabasz_score(
+    embeddings: PyReadonlyArray2<f32>,
+    labels: Vec<i32>,
+) -> PyResult<f32> {
+    let arr = to_ndarray(embeddings);
     core_ch_score(&arr, &labels).map_err(Into::into)
 }
 
 #[pyfunction]
-pub fn silhouette_score(embeddings: Vec<Vec<f32>>, labels: Vec<i32>) -> PyResult<f32> {
-    let arr = to_ndarray(embeddings)?;
+pub fn silhouette_score(embeddings: PyReadonlyArray2<f32>, labels: Vec<i32>) -> PyResult<f32> {
+    let arr = to_ndarray(embeddings);
     core_silhouette(&arr, &labels).map_err(Into::into)
 }
 
 // ================= Geometry & Hubness Metrics =================
 
 #[pyfunction]
-pub fn effective_rank(embeddings: Vec<Vec<f32>>) -> PyResult<f32> {
-    let arr = to_ndarray(embeddings)?;
+pub fn effective_rank(embeddings: PyReadonlyArray2<f32>) -> PyResult<f32> {
+    let arr = to_ndarray(embeddings);
     let (_, eigenvalues) = core_cov_eig(&arr)?;
     core_effective_rank(&eigenvalues).map_err(Into::into)
 }
 
 #[pyfunction]
-pub fn similarity_to_global_mean(embeddings: Vec<Vec<f32>>) -> PyResult<Vec<f32>> {
-    let arr = to_ndarray(embeddings)?;
+pub fn similarity_to_global_mean(embeddings: PyReadonlyArray2<f32>) -> PyResult<Vec<f32>> {
+    let arr = to_ndarray(embeddings);
     let sims = core_sim_mean(&arr)?;
     Ok(sims.to_vec())
 }
 
 #[pyfunction]
-pub fn compute_hubness(embeddings: Vec<Vec<f32>>, k: usize) -> PyResult<(Vec<usize>, f32)> {
-    let arr = to_ndarray(embeddings)?;
+pub fn compute_hubness(embeddings: PyReadonlyArray2<f32>, k: usize) -> PyResult<(Vec<usize>, f32)> {
+    let arr = to_ndarray(embeddings);
     core_hubness(&arr, k).map_err(Into::into)
 }
 
@@ -145,12 +132,12 @@ pub fn compute_hubness(embeddings: Vec<Vec<f32>>, k: usize) -> PyResult<(Vec<usi
 #[pyfunction]
 #[pyo3(signature = (high_dim, low_dim, k = 10))]
 pub fn trustworthiness(
-    high_dim: Vec<Vec<f32>>,
-    low_dim: Vec<Vec<f32>>,
+    high_dim: PyReadonlyArray2<f32>,
+    low_dim: PyReadonlyArray2<f32>,
     k: usize,
 ) -> PyResult<f32> {
-    let high = to_ndarray(high_dim)?;
-    let low = to_ndarray(low_dim)?;
+    let high = to_ndarray(high_dim);
+    let low = to_ndarray(low_dim);
     core_trustworthiness(&high, &low, k).map_err(Into::into)
 }
 
@@ -161,12 +148,12 @@ pub fn trustworthiness(
 #[pyfunction]
 #[pyo3(signature = (high_dim, low_dim, k = 10))]
 pub fn continuity(
-    high_dim: Vec<Vec<f32>>,
-    low_dim: Vec<Vec<f32>>,
+    high_dim: PyReadonlyArray2<f32>,
+    low_dim: PyReadonlyArray2<f32>,
     k: usize,
 ) -> PyResult<f32> {
-    let high = to_ndarray(high_dim)?;
-    let low = to_ndarray(low_dim)?;
+    let high = to_ndarray(high_dim);
+    let low = to_ndarray(low_dim);
     core_continuity(&high, &low, k).map_err(Into::into)
 }
 
@@ -227,4 +214,3 @@ pub fn coverage_at_k(
 ) -> PyResult<f64> {
     core_coverage_at_k(&all_retrieved, &all_relevant, k).map_err(Into::into)
 }
-

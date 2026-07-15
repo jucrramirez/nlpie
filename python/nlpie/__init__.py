@@ -35,6 +35,15 @@ from ._api import (
     coverage_at_k,
 )
 from ._errors import NlpieError, PreprocessingError
+from .interpret import HubnessExplanation, HubInfo, explain_hubness
+from .backends import PlotBackend, PlotlyBackend
+from .dashboard import (
+    plot_hubness_histogram,
+    plot_similarity_distribution,
+    plot_similarity_to_mean,
+    plot_projection_quality,
+    plot_retrieval_metrics,
+)
 
 __all__ = [
     "EmbeddingPreprocessor",
@@ -69,6 +78,19 @@ __all__ = [
     "mean_reciprocal_rank",
     "ndcg_at_k",
     "coverage_at_k",
+    # Interpret
+    "HubnessExplanation",
+    "HubInfo",
+    "explain_hubness",
+    # Backends
+    "PlotBackend",
+    "PlotlyBackend",
+    # Dashboard
+    "plot_hubness_histogram",
+    "plot_similarity_distribution",
+    "plot_similarity_to_mean",
+    "plot_projection_quality",
+    "plot_retrieval_metrics",
     "NlpieError",
     "PreprocessingError",
 ]

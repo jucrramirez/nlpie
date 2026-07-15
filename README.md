@@ -80,6 +80,16 @@ From the project root, create and sync the virtual environment:
 uv sync
 ```
 
+By default `uv sync` only installs the core dependencies. Optional extras are available:
+
+```bash
+uv sync --extra plotting          # Install plotly for interactive charts
+uv sync --extra dev               # Install jupyter for running notebooks
+uv sync --all-extras              # Install all extras at once
+```
+
+> **Note:** `uv sync` synchronises the environment with the lock file. Packages installed manually via `uv pip install` will be removed. Always use `uv sync --extra <name>` to include optional dependencies.
+
 If you want to run the project inside the managed environment:
 
 ```bash
@@ -88,7 +98,7 @@ uv run python --version
 
 ### Build the extension
 
-For local development, `maturin develop` builds the Rust extension and installs it into the active environment. You can also build a wheel for distribution with `maturin build`. [web:54][web:45]
+For local development, `maturin develop` builds the Rust extension and installs it into the active environment. You can also build a wheel for distribution with `maturin build`.
 
 ```bash
 uv run maturin develop
@@ -117,6 +127,28 @@ uv run pytest
 cargo test
 ```
 
+### Run Jupyter notebooks
+
+Make sure you have the dev extra installed:
+
+```bash
+uv sync --extra dev --extra plotting
+```
+
+Then launch Jupyter from the project root:
+
+```bash
+uv run jupyter notebook python/examples/
+```
+
+Available notebooks:
+
+| Notebook | Description |
+|---|---|
+| `pipeline.ipynb` | End-to-end pipeline with synthetic embeddings |
+| `pipeline_with_real_embeddings.ipynb` | Full pipeline using real 1536‑d embeddings from a parquet file |
+| `normalization.ipynb` | Embedding preprocessing (L2 norm, centering, PCA whitening) |
+
 ## 🔎 Important considerations
 
 - Run commands from the project root so `Cargo.toml`, `pyproject.toml`, and `uv.lock` are all picked up correctly.
@@ -131,11 +163,35 @@ Once installed, you should be able to import the package from Python like this:
 
 ```python
 import nlpie
-from nlpie import _api
+from nlpie import (
+    EmbeddingPreprocessor,
+    compute_hubness,
+    effective_rank,
+    explain_hubness,
+    plot_hubness_histogram,
+)
 ```
 
 If you want to validate the Rust extension is available:
 
 ```bash
 uv run python -c "import nlpie._nlpie_core"
+```
+
+### Quick pipeline
+
+```python
+import numpy as np
+from metrics.quality import evaluate_embedding_quality
+
+embeddings = np.random.randn(200, 64).astype(np.float32)
+labels = [i % 5 for i in range(200)]
+
+report = evaluate_embedding_quality(
+    embeddings=embeddings,
+    labels=labels,
+    hubness_k=5,
+    model_name="example",
+)
+print(report)
 ```
