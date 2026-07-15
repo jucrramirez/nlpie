@@ -1,5 +1,6 @@
 """Public high-level Python API for the nlpie embedding normalization library."""
 
+import numpy as np
 from dataclasses import dataclass
 from functools import wraps
 from typing import Optional, Sequence, Tuple
@@ -59,23 +60,19 @@ class WhitenModel:
         )
 
 
-def _to_matrix(embeddings: MatrixLike) -> list[list[float]]:
-    """Converts a MatrixLike input to a standard nested list of floats.
+def _to_matrix(embeddings: MatrixLike) -> np.ndarray:
+    """Converts a MatrixLike input to a float32 numpy array (zero-copy if already numpy).
 
-    Supports lists, tuples, and numpy-like arrays (via `.tolist()`).
+    Supports lists, tuples, and numpy arrays. Empty input is treated as (0, 0).
     """
-    if hasattr(embeddings, "tolist"):
-        embeddings = embeddings.tolist()
-
-    if not isinstance(embeddings, (list, tuple)):
-        raise TypeError("Embeddings must be a list, tuple, or numpy array")
-
-    result = []
-    for row in embeddings:
-        if not isinstance(row, (list, tuple)):
-            raise TypeError("Embeddings must be a 2D matrix (sequence of sequences)")
-        result.append([float(x) for x in row])
-    return result
+    if isinstance(embeddings, (list, tuple)) and len(embeddings) == 0:
+        return np.empty((0, 0), dtype=np.float32)
+    arr = np.asarray(embeddings, dtype=np.float32)
+    if arr.ndim != 2:
+        raise TypeError(
+            f"Embeddings must be a 2D matrix, got {arr.ndim}D array"
+        )
+    return arr
 
 
 def _to_vector(vector: VectorLike) -> list[float]:
