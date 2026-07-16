@@ -1,0 +1,45 @@
+from .._dashboard import (
+    plot_hubness_histogram,
+    plot_similarity_distribution,
+    plot_similarity_to_mean,
+    plot_projection_quality,
+    plot_retrieval_metrics,
+    plot_similarity_heatmap,
+    plot_hubness_bar,
+    plot_eigenvalue_scree,
+    plot_silhouette,
+    plot_correlation_heatmap,
+    plot_embedding_scatter,
+    plot_comparison_radar,
+    plot_comparison_grouped_bar,
+    plot_comparison_delta,
+    plot_quality_report,
+)
+from .comparison import (
+    compare_and_plot_radar,
+    compare_and_plot_grouped_bar,
+    compare_and_plot_delta,
+)
+from .builder import DashboardBuilder
+
+__all__ = [
+    "plot_hubness_histogram",
+    "plot_similarity_distribution",
+    "plot_similarity_to_mean",
+    "plot_projection_quality",
+    "plot_retrieval_metrics",
+    "plot_similarity_heatmap",
+    "plot_hubness_bar",
+    "plot_eigenvalue_scree",
+    "plot_silhouette",
+    "plot_correlation_heatmap",
+    "plot_embedding_scatter",
+    "plot_comparison_radar",
+    "plot_comparison_grouped_bar",
+    "plot_comparison_delta",
+    "plot_quality_report",
+    "compare_and_plot_radar",
+    "compare_and_plot_grouped_bar",
+    "compare_and_plot_delta",
+    "DashboardBuilder",
+]

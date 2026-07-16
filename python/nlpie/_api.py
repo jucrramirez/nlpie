@@ -131,6 +131,25 @@ def cosine_similarity_matrix(embeddings: MatrixLike, eps: float = 1e-12) -> list
 
 
 @_wrap_exceptions
+def cosine_similarity_matrix_stats(
+    embeddings: MatrixLike, eps: float = 1e-12
+) -> tuple[list[list[float]], float, float, float, float]:
+    """Computes the cosine similarity matrix and its off-diagonal summary statistics.
+
+    The mean, std, min, and max of the upper-triangle entries are computed
+    in a single Rust pass, avoiding an O(N²) Python loop.
+
+    Args:
+        embeddings: The 2D embedding matrix.
+        eps: Small value to prevent division by zero during normalization.
+
+    Returns:
+        A tuple (matrix, mean, std, min, max).
+    """
+    return _nlpie_core.cosine_similarity_matrix_stats(_to_matrix(embeddings), eps)
+
+
+@_wrap_exceptions
 def pearson_correlation(x: VectorLike, y: VectorLike) -> float:
     """Computes the Pearson correlation coefficient between two vectors.
 

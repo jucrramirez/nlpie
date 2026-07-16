@@ -36,6 +36,7 @@ mod python_module {
         )?)?;
 
         m.add_function(wrap_pyfunction!(bindings::metrics::cosine_similarity_matrix, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::cosine_similarity_matrix_stats, m)?)?;
         m.add_function(wrap_pyfunction!(bindings::metrics::pearson_correlation, m)?)?;
         m.add_function(wrap_pyfunction!(bindings::metrics::spearman_correlation, m)?)?;
 

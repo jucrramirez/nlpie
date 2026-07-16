@@ -1,9 +1,6 @@
-import sys
 import math
 
 import pytest
-
-sys.path.insert(0, "python")
 
 from nlpie.interpret.hubness import explain_hubness, HubnessExplanation
 

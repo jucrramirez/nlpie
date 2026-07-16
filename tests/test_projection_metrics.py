@@ -112,10 +112,7 @@ class TestContinuity:
 
 class TestEvaluateProjection:
     def test_report_contains_all_k_values(self):
-        sys = pytest.importorskip("sys")
-        import sys
-        sys.path.insert(0, "python")
-        from metrics.projection import evaluate_projection
+        from nlpie.metrics.projection import evaluate_projection
 
         emb = [[float(i), 0.0] for i in range(15)]
         report = evaluate_projection(emb, emb, k_values=[2, 5, 10])
@@ -123,9 +120,7 @@ class TestEvaluateProjection:
         assert [s.k for s in report.scores] == [2, 5, 10]
 
     def test_perfect_projection_mean_scores(self):
-        import sys
-        sys.path.insert(0, "python")
-        from metrics.projection import evaluate_projection
+        from nlpie.metrics.projection import evaluate_projection
 
         emb = [[float(i), 0.0] for i in range(15)]
         report = evaluate_projection(emb, emb, k_values=[2, 5])
@@ -133,9 +128,7 @@ class TestEvaluateProjection:
         assert math.isclose(report.mean_continuity, 1.0, abs_tol=1e-5)
 
     def test_empty_k_values_raises(self):
-        import sys
-        sys.path.insert(0, "python")
-        from metrics.projection import evaluate_projection
+        from nlpie.metrics.projection import evaluate_projection
 
         emb = [[float(i), 0.0] for i in range(15)]
         with pytest.raises(ValueError):
