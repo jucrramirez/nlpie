@@ -169,6 +169,7 @@ from nlpie import (
     effective_rank,
     explain_hubness,
     plot_hubness_histogram,
+    plot_quality_report,
 )
 ```
 
@@ -181,17 +182,26 @@ uv run python -c "import nlpie._nlpie_core"
 ### Quick pipeline
 
 ```python
-import numpy as np
-from metrics.quality import evaluate_embedding_quality
+import sys, numpy as np
+from nlpie.metrics.quality import evaluate_embedding_quality
 
 embeddings = np.random.randn(200, 64).astype(np.float32)
 labels = [i % 5 for i in range(200)]
 
-report = evaluate_embedding_quality(
+report, interpretation = evaluate_embedding_quality(
     embeddings=embeddings,
     labels=labels,
     hubness_k=5,
     model_name="example",
 )
 print(report)
+print(interpretation)
+
+# Render an interactive dashboard (requires plotly)
+fig_kpi, chart_list, fig_story = plot_quality_report(report)
+fig_kpi.show()
+for _, fig in chart_list:
+    fig.show()
+if fig_story:
+    fig_story.show()
 ```

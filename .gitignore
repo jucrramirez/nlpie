@@ -19,6 +19,5 @@ wheels/
 /.agents 
 
 # Local files
-docs/*
 .tasks/
 .DS_Store

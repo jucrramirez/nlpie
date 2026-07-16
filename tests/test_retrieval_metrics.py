@@ -164,9 +164,7 @@ class TestCoverageAtK:
 
 class TestEvaluateRetrieval:
     def _import(self):
-        import sys
-        sys.path.insert(0, "python")
-        from metrics.retrieval import evaluate_retrieval
+        from nlpie.metrics.retrieval import evaluate_retrieval
         return evaluate_retrieval
 
     def test_report_has_correct_k_values(self):

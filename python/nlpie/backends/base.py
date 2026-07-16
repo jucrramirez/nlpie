@@ -32,3 +32,7 @@ class PlotBackend(ABC):
         ndcg: Sequence[float],
     ) -> object:
         ...
+
+    @abstractmethod
+    def full_dashboard(self, report, interpretation=None) -> tuple:
+        ...

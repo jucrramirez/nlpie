@@ -1,14 +1,10 @@
 """Tests for the EmbeddingQualityReport and model comparison (TASK-007)."""
 
 import math
-import sys
 
 import pytest
 
-# Ensure the python/ directory is importable for the metrics helpers.
-sys.path.insert(0, "python")
-
-from metrics.quality import (
+from nlpie.metrics.quality import (
     EmbeddingQualityReport,
     IntrinsicMetrics,
     ClusteringMetrics,
@@ -58,7 +54,7 @@ class TestEmbeddingQualityReport:
 class TestEvaluateIntrinsicAndGeometry:
     def test_intrinsic_metrics_populated(self):
         emb = _make_embeddings(20, 4)
-        report = evaluate_embedding_quality(emb, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, hubness_k=3)
         assert report.intrinsic is not None
         assert report.intrinsic.mean != 0.0
         assert report.intrinsic.std >= 0.0
@@ -66,24 +62,24 @@ class TestEvaluateIntrinsicAndGeometry:
 
     def test_geometry_metrics_populated(self):
         emb = _make_embeddings(20, 4)
-        report = evaluate_embedding_quality(emb, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, hubness_k=3)
         assert report.geometry is not None
         assert report.geometry.effective_rank > 0.0
         assert report.geometry.hubness_k == 3
 
     def test_clustering_not_populated_without_labels(self):
         emb = _make_embeddings(20, 4)
-        report = evaluate_embedding_quality(emb, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, hubness_k=3)
         assert report.clustering is None
 
     def test_projection_not_populated_without_low_dim(self):
         emb = _make_embeddings(20, 4)
-        report = evaluate_embedding_quality(emb, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, hubness_k=3)
         assert report.projection == []
 
     def test_retrieval_not_populated_without_data(self):
         emb = _make_embeddings(20, 4)
-        report = evaluate_embedding_quality(emb, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, hubness_k=3)
         assert report.retrieval == []
 
 
@@ -95,9 +91,8 @@ class TestEvaluateWithClustering:
     def test_clustering_populated_with_labels(self):
         emb = _make_embeddings(30, 4)
         labels = _make_labels(30, 3)
-        report = evaluate_embedding_quality(emb, labels=labels, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, labels=labels, hubness_k=3)
         assert report.clustering is not None
-        # With labels compared to themselves, ARI/NMI/Purity should be perfect.
         assert math.isclose(report.clustering.ari, 1.0, abs_tol=1e-6)
         assert math.isclose(report.clustering.nmi, 1.0, abs_tol=1e-6)
         assert math.isclose(report.clustering.purity, 1.0, abs_tol=1e-6)
@@ -105,10 +100,9 @@ class TestEvaluateWithClustering:
     def test_clustering_with_pred_labels(self):
         emb = _make_embeddings(30, 4)
         labels = _make_labels(30, 3)
-        pred = _make_labels(30, 2)  # Different clustering
-        report = evaluate_embedding_quality(emb, labels=labels, labels_pred=pred, hubness_k=3)
+        pred = _make_labels(30, 2)
+        report, _ = evaluate_embedding_quality(emb, labels=labels, labels_pred=pred, hubness_k=3)
         assert report.clustering is not None
-        # ARI with different clusterings should not be 1.0.
         assert report.clustering.ari < 1.0
 
 
@@ -120,7 +114,7 @@ class TestEvaluateWithProjection:
     def test_projection_populated(self):
         emb = _make_embeddings(20, 4)
         low = [[float(i), float(i + 1)] for i in range(20)]
-        report = evaluate_embedding_quality(
+        report, _ = evaluate_embedding_quality(
             emb,
             low_dim=low,
             projection_k_values=[2, 5],
@@ -132,7 +126,7 @@ class TestEvaluateWithProjection:
 
     def test_perfect_projection_scores(self):
         emb = [[float(i), 0.0] for i in range(15)]
-        report = evaluate_embedding_quality(
+        report, _ = evaluate_embedding_quality(
             emb,
             low_dim=emb,
             projection_k_values=[2],
@@ -151,7 +145,7 @@ class TestEvaluateWithRetrieval:
         emb = _make_embeddings(10, 4)
         retrieved = [[0, 1, 2], [3, 4, 5]]
         relevant = [[0, 1], [3, 4]]
-        report = evaluate_embedding_quality(
+        report, _ = evaluate_embedding_quality(
             emb,
             retrieved=retrieved,
             relevant=relevant,
@@ -164,7 +158,7 @@ class TestEvaluateWithRetrieval:
         emb = _make_embeddings(10, 4)
         retrieved = [[0, 1, 2], [3, 4, 5]]
         relevant = [[0, 1, 2], [3, 4, 5]]
-        report = evaluate_embedding_quality(
+        report, _ = evaluate_embedding_quality(
             emb,
             retrieved=retrieved,
             relevant=relevant,
@@ -198,7 +192,7 @@ class TestFullReport:
         retrieved = [[0, 1, 2], [3, 4, 5]]
         relevant = [[0, 1], [3, 4]]
 
-        report = evaluate_embedding_quality(
+        report, _ = evaluate_embedding_quality(
             emb,
             labels=labels,
             hubness_k=3,
@@ -219,7 +213,7 @@ class TestFullReport:
     def test_str_representation_non_empty(self):
         emb = _make_embeddings(20, 4)
         labels = _make_labels(20, 3)
-        report = evaluate_embedding_quality(emb, labels=labels, hubness_k=3)
+        report, _ = evaluate_embedding_quality(emb, labels=labels, hubness_k=3)
         text = str(report)
         assert "Embedding Quality Report" in text
         assert "Intrinsic" in text
@@ -235,7 +229,7 @@ class TestCompareModels:
     def test_returns_one_report_per_model(self):
         emb_a = _make_embeddings(20, 4)
         emb_b = [[float(i * 2 + j) for j in range(4)] for i in range(20)]
-        reports = compare_models(
+        reports, _ = compare_models(
             {"model_a": emb_a, "model_b": emb_b},
             hubness_k=3,
         )
@@ -247,7 +241,7 @@ class TestCompareModels:
         emb_a = _make_embeddings(20, 4)
         emb_b = _make_embeddings(20, 4)
         labels = _make_labels(20, 3)
-        reports = compare_models(
+        reports, _ = compare_models(
             {"a": emb_a, "b": emb_b},
             labels=labels,
             hubness_k=3,
@@ -259,16 +253,14 @@ class TestCompareModels:
         emb_a = [[float(i), 0.0] for i in range(15)]
         emb_b = [[float(i), 0.0] for i in range(15)]
         low_a = emb_a
-        # Use an alternating pattern to destroy neighborhood structure
         low_b = [[float(i % 3), float(i % 5)] for i in range(15)]
 
-        reports = compare_models(
+        reports, _ = compare_models(
             {"a": emb_a, "b": emb_b},
             low_dims={"a": low_a, "b": low_b},
             projection_k_values=[2],
             hubness_k=3,
         )
-        # Model A has perfect projection; model B does not.
         assert math.isclose(reports[0].projection[0].trustworthiness, 1.0, abs_tol=1e-4)
         assert reports[1].projection[0].trustworthiness < 1.0
 
@@ -276,10 +268,10 @@ class TestCompareModels:
         emb_a = _make_embeddings(10, 4)
         emb_b = _make_embeddings(10, 4)
         relevant = [[0, 1], [3, 4]]
-        retrieved_a = [[0, 1, 2], [3, 4, 5]]  # Perfect top-2
-        retrieved_b = [[5, 6, 7], [8, 9, 0]]  # Poor top-2
+        retrieved_a = [[0, 1, 2], [3, 4, 5]]
+        retrieved_b = [[5, 6, 7], [8, 9, 0]]
 
-        reports = compare_models(
+        reports, _ = compare_models(
             {"a": emb_a, "b": emb_b},
             retrieved={"a": retrieved_a, "b": retrieved_b},
             relevant=relevant,

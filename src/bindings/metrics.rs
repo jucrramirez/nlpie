@@ -1,5 +1,6 @@
 use crate::core::metrics::basic::{
     cosine_similarity_matrix as core_cosine_similarity_matrix,
+    cosine_similarity_matrix_stats as core_cosine_similarity_matrix_stats,
     pearson_correlation as core_pearson_correlation,
     spearman_correlation as core_spearman_correlation,
 };
@@ -55,6 +56,20 @@ pub fn cosine_similarity_matrix(
     let arr = to_ndarray(embeddings);
     let sim_matrix = core_cosine_similarity_matrix(&arr, eps);
     Ok(to_vec(sim_matrix))
+}
+
+/// Computes the N x N cosine similarity matrix with summary statistics.
+///
+/// Returns (matrix, mean, std, min, max).
+#[pyfunction]
+#[pyo3(signature = (embeddings, eps=DEFAULT_EPS))]
+pub fn cosine_similarity_matrix_stats(
+    embeddings: PyReadonlyArray2<f32>,
+    eps: f32,
+) -> PyResult<(Vec<Vec<f32>>, f32, f32, f32, f32)> {
+    let arr = to_ndarray(embeddings);
+    let (matrix, stats) = core_cosine_similarity_matrix_stats(&arr, eps);
+    Ok((to_vec(matrix), stats.mean, stats.std, stats.min_val, stats.max_val))
 }
 
 /// Computes the Pearson correlation coefficient between two 1D vectors.

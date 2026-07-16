@@ -21,6 +21,7 @@ pub fn compute_hubness(
 
     let hubness_counts: Vec<usize> = (0..n_samples)
         .into_par_iter()
+        .with_min_len(100)
         .flat_map_iter(|i| {
             let row_i = embeddings.row(i);
 

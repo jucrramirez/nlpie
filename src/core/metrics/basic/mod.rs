@@ -16,6 +16,80 @@ pub fn cosine_similarity_matrix(embeddings: &Array2<f32>, eps: f32) -> Array2<f3
     normalized.dot(&normalized.t())
 }
 
+/// Summary statistics for a cosine similarity matrix.
+#[derive(Debug, Clone, Copy)]
+pub struct SimilarityStats {
+    pub mean: f32,
+    pub std: f32,
+    pub min_val: f32,
+    pub max_val: f32,
+}
+
+/// Computes the N x N cosine similarity matrix and returns it together with
+/// summary statistics (mean, std, min, max) of the off-diagonal entries.
+///
+/// The statistics are computed in a single pass over the upper triangle inside
+/// Rust, avoiding the O(N²) Python loop.
+pub fn cosine_similarity_matrix_stats(
+    embeddings: &Array2<f32>,
+    eps: f32,
+) -> (Array2<f32>, SimilarityStats) {
+    let matrix = cosine_similarity_matrix(embeddings, eps);
+    let n = matrix.nrows();
+
+    if n <= 1 {
+        return (
+            matrix,
+            SimilarityStats {
+                mean: 0.0,
+                std: 0.0,
+                min_val: 0.0,
+                max_val: 0.0,
+            },
+        );
+    }
+
+    let mut count: usize = 0;
+    let mut sum: f64 = 0.0;
+    let mut min_val = matrix[[0, 1]];
+    let mut max_val = matrix[[0, 1]];
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let val = matrix[[i, j]];
+            sum += val as f64;
+            if val < min_val {
+                min_val = val;
+            }
+            if val > max_val {
+                max_val = val;
+            }
+            count += 1;
+        }
+    }
+
+    let mean = (sum / count as f64) as f32;
+
+    let mut var_sum: f64 = 0.0;
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let diff = matrix[[i, j]] as f64 - mean as f64;
+            var_sum += diff * diff;
+        }
+    }
+    let std = (var_sum / count as f64).sqrt() as f32;
+
+    (
+        matrix,
+        SimilarityStats {
+            mean,
+            std,
+            min_val,
+            max_val,
+        },
+    )
+}
+
 /// Computes the Pearson correlation coefficient between two 1D slices.
 pub fn pearson_correlation(x: &[f32], y: &[f32]) -> Result<f32, PreprocessingError> {
     if x.len() != y.len() || x.is_empty() {

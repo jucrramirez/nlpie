@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Optional, Sequence
+
+from .base import Explanation, ExplanationProvider
 
 
 @dataclass(frozen=True)
@@ -119,3 +121,46 @@ def explain_hubness(
         top_hubs=top_hubs,
         interpretation=interpretation,
     )
+
+
+_SEVERITY_MAP = {
+    "severe": "critical",
+    "moderate": "warning",
+    "low": "info",
+    "none": "info",
+}
+
+
+class HubnessExplanationProvider(ExplanationProvider):
+    def metric_keys(self) -> list[str]:
+        return ["hubness"]
+
+    def explain(self, report) -> Optional[Explanation]:
+        geometry = getattr(report, "geometry", None)
+        if geometry is None:
+            return None
+
+        skewness = geometry.hubness_skewness
+        raw_severity, interpretation = _classify_severity(skewness)
+        severity = _SEVERITY_MAP.get(raw_severity, "info")
+
+        if raw_severity == "severe":
+            summary = f"Severe hubness detected (skewness={skewness:.2f}). The K-NN distribution is heavily right-skewed."
+            recommendation = "Consider applying PCA whitening, contrastive loss post-processing, or removing hub points before downstream tasks."
+        elif raw_severity == "moderate":
+            summary = f"Moderate hubness detected (skewness={skewness:.2f}). Some points act as hubs."
+            recommendation = "Monitor hubness in downstream tasks. Consider contrastive post-processing if retrieval quality is affected."
+        elif raw_severity == "low":
+            summary = f"Low hubness (skewness={skewness:.2f}). The space is fairly well-behaved."
+            recommendation = "No action required."
+        else:
+            summary = f"Negligible hubness (skewness={skewness:.2f}). No significant hubness pathology detected."
+            recommendation = "No action required."
+
+        return Explanation(
+            metric="hubness",
+            severity=severity,
+            summary=summary,
+            detail=interpretation,
+            recommendation=recommendation,
+        )
