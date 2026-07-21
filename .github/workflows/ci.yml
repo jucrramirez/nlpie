@@ -56,8 +56,8 @@ jobs:
         run: echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
       - name: Install maturin
         run: uv pip install --system maturin
-      - name: Sync dependencies
-        run: uv sync --all-extras
+      - name: Sync dependencies (no build — maturin develop handles it)
+        run: uv sync --all-extras --no-install-project
       - name: Build Rust extension (Linux/macOS)
         if: runner.os != 'Windows'
         run: uv run maturin develop
@@ -82,15 +82,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gfortran libopenblas-dev
+      - name: Create venv
+        run: uv venv
       - name: Install maturin
-        run: uv pip install --system maturin
+        run: uv pip install maturin
       - name: Build wheel
-        run: uv run maturin build --release
+        run: uv run maturin build --release --out target/wheels
       - name: Verify type stubs are packaged
         run: |
-          WHEEL=$(find target/wheels -name "*.whl" 2>/dev/null | head -1)
+          echo "Looking for wheels..."
+          ls -la target/wheels/
+          WHEEL=$(find target/wheels -name "*.whl" | head -1)
           if [ -z "$WHEEL" ]; then
-            ls -la target/wheels/ 2>/dev/null || echo "target/wheels/ does not exist"
+            find . -name "*.whl"
             exit 1
           fi
           unzip -l "$WHEEL" | grep -q "nlpie/_nlpie_core.pyi"
