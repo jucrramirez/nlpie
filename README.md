@@ -182,8 +182,8 @@ uv run python -c "import nlpie._nlpie_core"
 ### Quick pipeline
 
 ```python
-import sys, numpy as np
-from nlpie.metrics.quality import evaluate_embedding_quality
+import numpy as np
+from nlpie import evaluate_embedding_quality, plot_quality_report
 
 embeddings = np.random.randn(200, 64).astype(np.float32)
 labels = [i % 5 for i in range(200)]
@@ -198,10 +198,30 @@ print(report)
 print(interpretation)
 
 # Render an interactive dashboard (requires plotly)
-fig_kpi, chart_list, fig_story = plot_quality_report(report)
-fig_kpi.show()
-for _, fig in chart_list:
-    fig.show()
-if fig_story:
-    fig_story.show()
+dashboard = plot_quality_report(report)
+dashboard.show()                       # open every figure in the browser
+# dashboard.write_html("report.html")  # or export a self-contained HTML file
 ```
+
+Everything above is importable straight from the top-level package — no deep
+module paths required.
+
+## 🩹 Troubleshooting
+
+Building from source (including `pip install git+https://...`) compiles the Rust
+extension on your machine, so you need:
+
+- **Rust toolchain** (`rustc`/`cargo`) — install via <https://rustup.rs>
+- **A BLAS/LAPACK provider** for `ndarray-linalg`:
+  - **macOS:** nothing to do — the build links the native Accelerate framework.
+  - **Linux:** `sudo apt-get install libopenblas-dev gfortran`
+  - **Windows / minimal Linux:** build with the statically compiled fallback:
+
+    ```bash
+    uv run maturin develop --features extension-module,openblas-static
+    ```
+
+    (slower first build; no system BLAS required)
+
+If the native module does not rebuild after changing Rust code, rerun
+`uv run maturin develop`.

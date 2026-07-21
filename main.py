@@ -5,7 +5,6 @@ Usage:
 """
 
 import numpy as np
-
 from nlpie import (
     EmbeddingPreprocessor,
     evaluate_embedding_quality,
@@ -35,8 +34,8 @@ def main():
     print(interpretation)
 
     try:
-        fig = plot_quality_report(report)
-        fig.show()
+        dashboard = plot_quality_report(report, interpretation=interpretation)
+        dashboard.show()
     except ImportError:
         print("Install plotly for interactive charts: uv sync --extra plotting")
 
