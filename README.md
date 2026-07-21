@@ -51,11 +51,54 @@ nlpie/
 
 ## 🚀 Installation
 
-### Prerequisites
+### Install from source
+
+```bash
+pip install git+https://github.com/jucrramirez/nlpie.git
+```
+
+With optional extras:
+
+```bash
+pip install "nlpie[plotting] @ git+https://github.com/jucrramirez/nlpie.git"
+```
+
+Using **uv**:
+
+```bash
+uv pip install git+https://github.com/jucrramirez/nlpie.git
+```
+
+With extras:
+
+```bash
+uv pip install "nlpie[plotting] @ git+https://github.com/jucrramirez/nlpie.git"
+```
+
+Using **poetry**:
+
+```bash
+poetry add git+https://github.com/jucrramirez/nlpie.git
+```
+
+Or in `pyproject.toml`:
+
+```toml
+[tool.poetry.dependencies]
+nlpie = { git = "https://github.com/jucrramirez/nlpie.git" }
+```
+
+> **Note:** Building from source compiles the Rust extension on your machine, so
+> you need a Rust toolchain and a BLAS/LAPACK provider — see
+> [Troubleshooting](#-troubleshooting) for details.
+
+### Local development
+
+#### Prerequisites
 
 Before running the project, make sure you have Python 3.12 or newer, a working Rust toolchain, and `uv` installed. The current project configuration requires Python `>=3.12`, uses `maturin` as the build backend, and enables the `extension-module` feature for the Rust/Python binding.
 
-### Clone the repository
+#### Clone the repository
 
 ```bash
 git clone https://github.com/jucrramirez/nlpie.git
