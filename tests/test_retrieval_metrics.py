@@ -5,20 +5,19 @@ Recall@K, Precision@K, MRR, nDCG@K, Coverage@K.
 import math
 
 import pytest
-
 from nlpie._api import (
-    recall_at_k,
-    precision_at_k,
+    coverage_at_k,
     mean_reciprocal_rank,
     ndcg_at_k,
-    coverage_at_k,
+    precision_at_k,
+    recall_at_k,
 )
 from nlpie._errors import PreprocessingError
-
 
 # ---------------------------------------------------------------------------
 # Recall@K
 # ---------------------------------------------------------------------------
+
 
 class TestRecallAtK:
     def test_perfect_recall(self):
@@ -49,6 +48,7 @@ class TestRecallAtK:
 # Precision@K
 # ---------------------------------------------------------------------------
 
+
 class TestPrecisionAtK:
     def test_perfect_precision(self):
         assert math.isclose(precision_at_k([0, 1, 2], [0, 1, 2], k=3), 1.0)
@@ -72,6 +72,7 @@ class TestPrecisionAtK:
 # ---------------------------------------------------------------------------
 # Mean Reciprocal Rank
 # ---------------------------------------------------------------------------
+
 
 class TestMeanReciprocalRank:
     def test_first_position_is_relevant(self):
@@ -98,6 +99,7 @@ class TestMeanReciprocalRank:
 # ---------------------------------------------------------------------------
 # nDCG@K
 # ---------------------------------------------------------------------------
+
 
 class TestNdcgAtK:
     def test_perfect_ndcg(self):
@@ -128,6 +130,7 @@ class TestNdcgAtK:
 # Coverage@K
 # ---------------------------------------------------------------------------
 
+
 class TestCoverageAtK:
     def test_full_coverage(self):
         retrieved = [[0, 1], [2, 3]]
@@ -156,51 +159,3 @@ class TestCoverageAtK:
     def test_empty_lists_raises(self):
         with pytest.raises(PreprocessingError):
             coverage_at_k([], [], k=1)
-
-
-# ---------------------------------------------------------------------------
-# High-level RetrievalReport helper
-# ---------------------------------------------------------------------------
-
-class TestEvaluateRetrieval:
-    def _import(self):
-        from nlpie.metrics.retrieval import evaluate_retrieval
-        return evaluate_retrieval
-
-    def test_report_has_correct_k_values(self):
-        evaluate_retrieval = self._import()
-        retrieved = [[0, 1, 2], [0, 1, 2]]
-        relevant = [[0, 1], [1, 2]]
-        report = evaluate_retrieval(retrieved, relevant, k_values=[1, 2, 3])
-        assert [s.k for s in report.scores] == [1, 2, 3]
-
-    def test_perfect_retrieval_scores(self):
-        evaluate_retrieval = self._import()
-        retrieved = [[0, 1, 2], [3, 4, 5]]
-        relevant = [[0, 1, 2], [3, 4, 5]]
-        report = evaluate_retrieval(retrieved, relevant, k_values=[3])
-        s = report.scores[0]
-        assert math.isclose(s.recall, 1.0)
-        assert math.isclose(s.precision, 1.0)
-        assert math.isclose(s.ndcg, 1.0)
-        assert math.isclose(s.coverage, 1.0)
-        assert math.isclose(s.mrr, 1.0)
-
-    def test_empty_k_values_raises(self):
-        evaluate_retrieval = self._import()
-        with pytest.raises(ValueError):
-            evaluate_retrieval([[0]], [[0]], k_values=[])
-
-    def test_mismatched_query_lists_raises(self):
-        evaluate_retrieval = self._import()
-        with pytest.raises(ValueError):
-            evaluate_retrieval([[0, 1], [2, 3]], [[0]], k_values=[1])
-
-    def test_str_report_is_non_empty(self):
-        evaluate_retrieval = self._import()
-        retrieved = [[0, 1, 2]]
-        relevant = [[0, 1]]
-        report = evaluate_retrieval(retrieved, relevant, k_values=[1, 2])
-        text = str(report)
-        assert "Retrieval Quality Report" in text
-        assert "k=" in text

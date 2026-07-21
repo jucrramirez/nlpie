@@ -1,8 +1,7 @@
 import math
 
 import pytest
-
-from nlpie.interpret.hubness import explain_hubness, HubnessExplanation
+from nlpie.interpret.hubness import HubnessExplanation, explain_hubness
 
 
 class TestExplainHubness:
@@ -70,8 +69,9 @@ class TestExplainHubness:
 
     def test_custom_thresholds(self):
         counts = [5, 5, 5, 5, 5, 5]
-        result = explain_hubness(counts, skewness=0.4, k=5,
-                                 severe_threshold=0.3, moderate_threshold=0.2)
+        result = explain_hubness(
+            counts, skewness=0.4, k=5, severe_threshold=0.3, moderate_threshold=0.2
+        )
         assert result.severity == "severe"
 
     def test_interpretation_present(self):
@@ -97,6 +97,7 @@ class TestExplainHubness:
 
     def test_smoke_with_rust_hubness(self):
         from nlpie import compute_hubness
+
         embeddings = [[float(i + j) for j in range(4)] for i in range(30)]
         counts, skewness = compute_hubness(embeddings, k=5)
         result = explain_hubness(counts, skewness, k=5)
