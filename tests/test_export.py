@@ -1,7 +1,10 @@
 """Tests for the export module (HTML, JSON, Markdown)."""
 
-from nlpie.metrics.quality import EmbeddingQualityReport, IntrinsicMetrics, GeometryMetrics
+import json
+
 from nlpie.export import HtmlExporter, JsonExporter, MarkdownExporter
+from nlpie.interpret import Explanation, InterpretationReport
+from nlpie.metrics.quality import EmbeddingQualityReport, GeometryMetrics, IntrinsicMetrics
 
 
 def _make_report() -> EmbeddingQualityReport:
@@ -44,6 +47,32 @@ class TestJsonExporter:
         text = exporter.to_string(report)
         assert '"intrinsic"' not in text
 
+    def test_interpretation_includes_detail_tier(self):
+        """Regression (B11): the detail tier must reach the exports."""
+        report = _make_report()
+        interpretation = InterpretationReport(
+            explanations=[
+                Explanation(
+                    metric="hubness",
+                    severity="critical",
+                    summary="Severe hubness.",
+                    detail="A few points dominate all neighbour lists.",
+                    recommendation="Apply whitening.",
+                )
+            ]
+        )
+        data = json.loads(JsonExporter().to_string(report, interpretation))
+        assert data["interpretation"][0]["detail"] == "A few points dominate all neighbour lists."
+
+
+class TestExportEscapes:
+    def test_html_exporter_escapes_model_name(self):
+        report = _make_report()
+        report.model_name = "<script>alert(1)</script>"
+        text = HtmlExporter().to_string(report)
+        assert "<script>alert(1)</script>" not in text
+        assert "&lt;script&gt;" in text
+
 
 class TestMarkdownExporter:
     def test_to_string_contains_sections(self):
@@ -62,6 +91,22 @@ class TestMarkdownExporter:
         with open(path) as f:
             data = f.read()
         assert "Embedding Quality Report" in data
+
+    def test_interpretation_includes_detail_tier(self):
+        report = _make_report()
+        interpretation = InterpretationReport(
+            explanations=[
+                Explanation(
+                    metric="intrinsic",
+                    severity="warning",
+                    summary="High mean similarity.",
+                    detail="Vectors share a dominant direction.",
+                    recommendation="Center the embeddings.",
+                )
+            ]
+        )
+        text = MarkdownExporter().to_string(report, interpretation)
+        assert "Vectors share a dominant direction." in text
 
 
 class TestHtmlExporter:

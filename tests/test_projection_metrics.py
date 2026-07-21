@@ -3,14 +3,13 @@
 import math
 
 import pytest
-
-from nlpie._api import trustworthiness, continuity
+from nlpie._api import continuity, projection_quality, trustworthiness
 from nlpie._errors import PreprocessingError
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _identity_5x2():
     """5 points on a 1-D line; the 'projection' is the same matrix."""
@@ -20,6 +19,7 @@ def _identity_5x2():
 # ---------------------------------------------------------------------------
 # Trustworthiness
 # ---------------------------------------------------------------------------
+
 
 class TestTrustworthiness:
     def test_perfect_projection_returns_one(self):
@@ -44,6 +44,18 @@ class TestTrustworthiness:
         with pytest.raises(PreprocessingError):
             trustworthiness(emb, emb, k=5)
 
+    def test_rejects_degenerate_k(self):
+        """k values with a non-positive normalisation denominator must error.
+
+        Regression test: n=2, k=1 and n=5, k=3 both make 2n - 3k - 1 <= 0,
+        which previously produced NaN or scores outside [0, 1].
+        """
+        with pytest.raises(PreprocessingError):
+            trustworthiness([[1.0, 0.0], [2.0, 0.0]], [[1.0, 0.0], [2.0, 0.0]], k=1)
+        emb = _identity_5x2()
+        with pytest.raises(PreprocessingError):
+            trustworthiness(emb, emb, k=3)
+
     def test_rejects_mismatched_row_counts(self):
         high = [[float(i), 0.0] for i in range(5)]
         low = [[float(i), 0.0] for i in range(4)]
@@ -59,8 +71,9 @@ class TestTrustworthiness:
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
     def test_default_k_is_10(self):
-        """Calling without explicit k should not raise for n > 10."""
-        emb = [[float(i), 0.0] for i in range(15)]
+        """Calling without explicit k should not raise when k=10 is in-domain."""
+        # Need 2n - 3*10 - 1 > 0 → n >= 16.
+        emb = [[float(i), 0.0] for i in range(31)]
         score = trustworthiness(emb, emb)
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
@@ -68,6 +81,7 @@ class TestTrustworthiness:
 # ---------------------------------------------------------------------------
 # Continuity
 # ---------------------------------------------------------------------------
+
 
 class TestContinuity:
     def test_perfect_projection_returns_one(self):
@@ -86,6 +100,11 @@ class TestContinuity:
         with pytest.raises(PreprocessingError):
             continuity(emb, emb, k=0)
 
+    def test_rejects_degenerate_k(self):
+        emb = _identity_5x2()
+        with pytest.raises(PreprocessingError):
+            continuity(emb, emb, k=3)
+
     def test_rejects_mismatched_row_counts(self):
         high = [[float(i), 0.0] for i in range(5)]
         low = [[float(i), 0.0] for i in range(3)]
@@ -101,35 +120,45 @@ class TestContinuity:
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
     def test_default_k_is_10(self):
-        emb = [[float(i), 0.0] for i in range(15)]
+        emb = [[float(i), 0.0] for i in range(31)]
         score = continuity(emb, emb)
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
 
 # ---------------------------------------------------------------------------
-# Projection report helper
+# One-pass projection_quality
 # ---------------------------------------------------------------------------
 
-class TestEvaluateProjection:
-    def test_report_contains_all_k_values(self):
-        from nlpie.metrics.projection import evaluate_projection
 
-        emb = [[float(i), 0.0] for i in range(15)]
-        report = evaluate_projection(emb, emb, k_values=[2, 5, 10])
-        assert len(report.scores) == 3
-        assert [s.k for s in report.scores] == [2, 5, 10]
+class TestProjectionQuality:
+    def test_matches_individual_calls(self):
+        high = [[float(i), 0.0] for i in range(10)]
+        low = [[float(9 - i), 0.0] for i in range(10)]
+        results = projection_quality(high, low, k_values=[2, 4, 5])
+        assert [k for k, _, _ in results] == [2, 4, 5]
+        for k, t, c in results:
+            assert math.isclose(t, trustworthiness(high, low, k=k), abs_tol=1e-6)
+            assert math.isclose(c, continuity(high, low, k=k), abs_tol=1e-6)
 
-    def test_perfect_projection_mean_scores(self):
-        from nlpie.metrics.projection import evaluate_projection
-
-        emb = [[float(i), 0.0] for i in range(15)]
-        report = evaluate_projection(emb, emb, k_values=[2, 5])
-        assert math.isclose(report.mean_trustworthiness, 1.0, abs_tol=1e-5)
-        assert math.isclose(report.mean_continuity, 1.0, abs_tol=1e-5)
+    def test_perfect_projection(self):
+        emb = [[float(i), 0.0] for i in range(10)]
+        results = projection_quality(emb, emb, k_values=[2, 4])
+        for _, t, c in results:
+            assert math.isclose(t, 1.0, abs_tol=1e-5)
+            assert math.isclose(c, 1.0, abs_tol=1e-5)
 
     def test_empty_k_values_raises(self):
-        from nlpie.metrics.projection import evaluate_projection
+        emb = [[float(i), 0.0] for i in range(10)]
+        with pytest.raises(PreprocessingError):
+            projection_quality(emb, emb, k_values=[])
 
-        emb = [[float(i), 0.0] for i in range(15)]
-        with pytest.raises(ValueError):
-            evaluate_projection(emb, emb, k_values=[])
+    def test_invalid_k_raises(self):
+        emb = _identity_5x2()
+        with pytest.raises(PreprocessingError):
+            projection_quality(emb, emb, k_values=[1, 3])
+
+    def test_mismatched_rows_raises(self):
+        high = [[float(i), 0.0] for i in range(5)]
+        low = [[float(i), 0.0] for i in range(4)]
+        with pytest.raises(PreprocessingError):
+            projection_quality(high, low, k_values=[2])

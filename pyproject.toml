@@ -14,15 +14,12 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "maturin>=1.14.1",
     "numpy>=2.5.1",
-    "pyarrow>=25.0.0",
-    "pytest>=9.1.1",
 ]
 
 [project.optional-dependencies]
 plotting = ["plotly>=5.18"]
-dev = ["jupyter>=1.1"]
+dev = ["jupyter>=1.1", "pytest>=9.1.1", "pytest-benchmark>=5.1", "pyarrow>=25.0.0"]
 
 [tool.maturin]
 features = ["extension-module"]
@@ -43,3 +40,6 @@ quote-style = "double"
 python_version = "3.12"
 strict = false
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

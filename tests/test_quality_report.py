@@ -3,22 +3,16 @@
 import math
 
 import pytest
-
 from nlpie.metrics.quality import (
     EmbeddingQualityReport,
-    IntrinsicMetrics,
-    ClusteringMetrics,
-    GeometryMetrics,
-    ProjectionMetrics,
-    RetrievalMetrics,
-    evaluate_embedding_quality,
     compare_models,
+    evaluate_embedding_quality,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_embeddings(n: int = 30, d: int = 4) -> list[list[float]]:
     """Generates deterministic embeddings spread along the first axis."""
@@ -33,6 +27,7 @@ def _make_labels(n: int = 30, n_classes: int = 3) -> list[int]:
 # ---------------------------------------------------------------------------
 # EmbeddingQualityReport construction
 # ---------------------------------------------------------------------------
+
 
 class TestEmbeddingQualityReport:
     def test_str_contains_model_name(self):
@@ -50,6 +45,7 @@ class TestEmbeddingQualityReport:
 # ---------------------------------------------------------------------------
 # evaluate_embedding_quality — intrinsic & geometry only
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluateIntrinsicAndGeometry:
     def test_intrinsic_metrics_populated(self):
@@ -87,6 +83,7 @@ class TestEvaluateIntrinsicAndGeometry:
 # evaluate_embedding_quality — with clustering labels
 # ---------------------------------------------------------------------------
 
+
 class TestEvaluateWithClustering:
     def test_clustering_populated_with_labels(self):
         emb = _make_embeddings(30, 4)
@@ -109,6 +106,7 @@ class TestEvaluateWithClustering:
 # ---------------------------------------------------------------------------
 # evaluate_embedding_quality — with projection
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluateWithProjection:
     def test_projection_populated(self):
@@ -139,6 +137,7 @@ class TestEvaluateWithProjection:
 # ---------------------------------------------------------------------------
 # evaluate_embedding_quality — with retrieval
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluateWithRetrieval:
     def test_retrieval_populated(self):
@@ -184,6 +183,7 @@ class TestEvaluateWithRetrieval:
 # Full report with all sections
 # ---------------------------------------------------------------------------
 
+
 class TestFullReport:
     def test_all_sections_populated(self):
         emb = _make_embeddings(20, 4)
@@ -222,8 +222,154 @@ class TestFullReport:
 
 
 # ---------------------------------------------------------------------------
+# evaluate_embedding_quality — strict input validation
+# ---------------------------------------------------------------------------
+
+
+class TestStrictValidation:
+    def test_single_sample_raises(self):
+        with pytest.raises(ValueError, match="at least 2 samples"):
+            evaluate_embedding_quality([[1.0, 2.0]])
+
+    def test_empty_embeddings_raises(self):
+        with pytest.raises(ValueError, match="at least 2 samples"):
+            evaluate_embedding_quality([])
+
+    def test_hubness_k_too_large_raises(self):
+        emb = _make_embeddings(5, 4)
+        with pytest.raises(ValueError, match="hubness_k"):
+            evaluate_embedding_quality(emb, hubness_k=5)
+        with pytest.raises(ValueError, match="hubness_k"):
+            evaluate_embedding_quality(emb, hubness_k=10)
+
+    def test_hubness_k_zero_raises(self):
+        emb = _make_embeddings(5, 4)
+        with pytest.raises(ValueError, match="hubness_k"):
+            evaluate_embedding_quality(emb, hubness_k=0)
+
+    def test_default_projection_k_values_with_small_n_raises(self):
+        """Regression: defaults (5, 10, 20) must not crash small datasets —
+        they must fail with a clear, actionable message."""
+        emb = _make_embeddings(10, 4)
+        low = [[float(i), 0.0] for i in range(10)]
+        with pytest.raises(ValueError, match="projection k=10"):
+            evaluate_embedding_quality(emb, low_dim=low, hubness_k=3)
+
+    def test_projection_k_degenerate_raises(self):
+        emb = _make_embeddings(5, 4)
+        low = [[float(i), 0.0] for i in range(5)]
+        with pytest.raises(ValueError, match="projection k=3"):
+            evaluate_embedding_quality(emb, low_dim=low, projection_k_values=[3], hubness_k=2)
+
+    def test_low_dim_row_mismatch_raises(self):
+        emb = _make_embeddings(10, 4)
+        low = [[float(i), 0.0] for i in range(8)]
+        with pytest.raises(ValueError, match="low_dim"):
+            evaluate_embedding_quality(emb, low_dim=low, projection_k_values=[2], hubness_k=3)
+
+    def test_empty_projection_k_values_raises(self):
+        emb = _make_embeddings(10, 4)
+        low = [[float(i), 0.0] for i in range(10)]
+        with pytest.raises(ValueError, match="projection_k_values"):
+            evaluate_embedding_quality(emb, low_dim=low, projection_k_values=[], hubness_k=3)
+
+    def test_retrieval_length_mismatch_raises(self):
+        emb = _make_embeddings(10, 4)
+        with pytest.raises(ValueError, match="same number of queries"):
+            evaluate_embedding_quality(
+                emb,
+                retrieved=[[0, 1], [2, 3]],
+                relevant=[[0, 1]],
+                hubness_k=3,
+            )
+
+    def test_empty_retrieval_k_values_raises(self):
+        emb = _make_embeddings(10, 4)
+        with pytest.raises(ValueError, match="retrieval_k_values"):
+            evaluate_embedding_quality(
+                emb,
+                retrieved=[[0, 1]],
+                relevant=[[0]],
+                retrieval_k_values=[],
+                hubness_k=3,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Interpretation integration (registry flows end-to-end)
+# ---------------------------------------------------------------------------
+
+
+class TestInterpretationIntegration:
+    def test_interpretation_returned_and_populated(self):
+        emb = _make_embeddings(20, 4)
+        _, interpretation = evaluate_embedding_quality(emb, hubness_k=3)
+        # intrinsic + hubness + effective_rank + similarity_to_mean
+        metrics = {e.metric for e in interpretation.explanations}
+        assert "intrinsic" in metrics
+        assert "hubness" in metrics
+        assert "effective_rank" in metrics
+        assert "similarity_to_mean" in metrics
+
+    def test_all_explanations_have_full_three_tier_content(self):
+        emb = _make_embeddings(20, 4)
+        labels = _make_labels(20, 3)
+        _, interpretation = evaluate_embedding_quality(emb, labels=labels, hubness_k=3)
+        assert interpretation.explanations
+        for exp in interpretation.explanations:
+            assert exp.severity in ("critical", "warning", "info")
+            assert exp.summary
+            assert exp.detail, f"{exp.metric} explanation is missing its detail tier"
+            assert exp.recommendation
+
+    def test_clustering_and_projection_explanations_present(self):
+        emb = _make_embeddings(20, 4)
+        labels = _make_labels(20, 3)
+        low = [[float(i), 0.0] for i in range(20)]
+        retrieved = [[0, 1, 2], [3, 4, 5]]
+        relevant = [[0, 1], [3, 4]]
+        _, interpretation = evaluate_embedding_quality(
+            emb,
+            labels=labels,
+            low_dim=low,
+            projection_k_values=[2],
+            retrieved=retrieved,
+            relevant=relevant,
+            retrieval_k_values=[2],
+            hubness_k=3,
+        )
+        metrics = {e.metric for e in interpretation.explanations}
+        assert {
+            "intrinsic",
+            "hubness",
+            "effective_rank",
+            "similarity_to_mean",
+            "clustering",
+            "projection",
+            "retrieval",
+        } <= metrics
+
+    def test_severity_filters(self):
+        emb = _make_embeddings(20, 4)
+        _, interpretation = evaluate_embedding_quality(emb, hubness_k=3)
+        for exp in interpretation.critical:
+            assert exp.severity == "critical"
+        for exp in interpretation.warnings:
+            assert exp.severity == "warning"
+        for exp in interpretation.info:
+            assert exp.severity == "info"
+
+    def test_no_duplicate_explanations_per_metric(self):
+        emb = _make_embeddings(20, 4)
+        _, interpretation = evaluate_embedding_quality(emb, hubness_k=3)
+        metrics = [e.metric for e in interpretation.explanations]
+        assert len(metrics) == len(set(metrics))
+
+
+# ---------------------------------------------------------------------------
 # compare_models
 # ---------------------------------------------------------------------------
+
 
 class TestCompareModels:
     def test_returns_one_report_per_model(self):

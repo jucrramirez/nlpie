@@ -34,35 +34,34 @@ Example usage::
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Tuple
 
 from nlpie._api import (
-    cosine_similarity_matrix_stats,
+    _to_matrix,
     adjusted_rand_index,
-    normalized_mutual_info,
-    purity_score,
     calinski_harabasz_score,
-    silhouette_score,
-    effective_rank,
-    similarity_to_global_mean,
     compute_hubness,
-    trustworthiness,
-    continuity,
-    recall_at_k,
-    precision_at_k,
+    coverage_at_k,
+    effective_rank,
     mean_reciprocal_rank,
     ndcg_at_k,
-    coverage_at_k,
-    _to_matrix,
+    normalized_mutual_info,
+    pairwise_cosine_stats,
+    precision_at_k,
+    projection_quality,
+    purity_score,
+    recall_at_k,
+    silhouette_score,
+    similarity_to_global_mean,
 )
 from nlpie._types import MatrixLike
 from nlpie.interpret import ExplanationRegistry, InterpretationReport
 
-
 # ---------------------------------------------------------------------------
 # Metric sub-reports
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class IntrinsicMetrics:
@@ -148,14 +147,15 @@ class RetrievalMetrics:
 # Main report
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EmbeddingQualityReport:
     model_name: str = "unnamed"
     n_samples: int = 0
     n_dims: int = 0
-    intrinsic: Optional[IntrinsicMetrics] = None
-    clustering: Optional[ClusteringMetrics] = None
-    geometry: Optional[GeometryMetrics] = None
+    intrinsic: IntrinsicMetrics | None = None
+    clustering: ClusteringMetrics | None = None
+    geometry: GeometryMetrics | None = None
     projection: list[ProjectionMetrics] = field(default_factory=list)
     retrieval: list[RetrievalMetrics] = field(default_factory=list)
     pairwise_similarities: list[float] = field(default_factory=list)
@@ -192,23 +192,20 @@ class EmbeddingQualityReport:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _compute_intrinsic(
-    embeddings_matrix: list[list[float]],
+    embeddings_matrix: MatrixLike,
 ) -> tuple[IntrinsicMetrics, list[float]]:
-    matrix, mean, std, min_val, max_val = cosine_similarity_matrix_stats(embeddings_matrix)
-    n = len(matrix)
-    pairwise = [
-        matrix[i][j]
-        for i in range(n)
-        for j in range(i + 1, n)
-    ]
+    # Single Rust pass: returns the flattened upper triangle plus stats,
+    # so no O(N²) matrix is materialized or re-extracted in Python.
+    pairwise, mean, std, min_val, max_val = pairwise_cosine_stats(embeddings_matrix)
     return IntrinsicMetrics(mean=mean, std=std, min=min_val, max=max_val), pairwise
 
 
 def _compute_clustering(
     embeddings_matrix: list[list[float]],
     labels: list[int],
-    labels_pred: Optional[list[int]],
+    labels_pred: list[int] | None,
 ) -> ClusteringMetrics:
     pred = labels_pred if labels_pred is not None else labels
     ari = adjusted_rand_index(labels, pred)
@@ -253,22 +250,62 @@ def _mean(values: list[float]) -> float:
 # Public API
 # ---------------------------------------------------------------------------
 
+
+def _validate_inputs(
+    n_samples: int,
+    n_dims: int,
+    hubness_k: int,
+    low_dim: MatrixLike | None,
+    projection_k_values: Sequence[int],
+) -> None:
+    """Fail fast with clear messages before any expensive computation."""
+    if n_samples < 2:
+        raise ValueError(
+            f"evaluate_embedding_quality requires at least 2 samples, got {n_samples}."
+        )
+    if n_dims < 1:
+        raise ValueError("Embeddings must have at least 1 dimension.")
+    if not 1 <= hubness_k < n_samples:
+        raise ValueError(
+            f"hubness_k={hubness_k} is invalid for {n_samples} samples: "
+            f"need 1 <= hubness_k < n_samples."
+        )
+    if low_dim is not None:
+        low_mat = _to_matrix(low_dim)
+        if len(low_mat) != n_samples:
+            raise ValueError(
+                f"low_dim has {len(low_mat)} rows but embeddings has {n_samples}; they must match."
+            )
+        if not projection_k_values:
+            raise ValueError("projection_k_values must not be empty when low_dim is provided.")
+        for k in projection_k_values:
+            # Same domain as the Rust normalisation: the denominator
+            # 2n - 3k - 1 must stay positive.
+            if k < 1 or 2 * n_samples - 3 * k - 1 <= 0:
+                raise ValueError(
+                    f"projection k={k} is invalid for {n_samples} samples: "
+                    f"need 1 <= k and 2*n_samples - 3*k - 1 > 0."
+                )
+
+
 def evaluate_embedding_quality(
     embeddings: MatrixLike,
     *,
-    labels: Optional[Sequence[int]] = None,
-    labels_pred: Optional[Sequence[int]] = None,
+    labels: Sequence[int] | None = None,
+    labels_pred: Sequence[int] | None = None,
     hubness_k: int = 5,
-    low_dim: Optional[MatrixLike] = None,
+    low_dim: MatrixLike | None = None,
     projection_k_values: Sequence[int] = (5, 10, 20),
-    retrieved: Optional[Sequence[Sequence[int]]] = None,
-    relevant: Optional[Sequence[Sequence[int]]] = None,
+    retrieved: Sequence[Sequence[int]] | None = None,
+    relevant: Sequence[Sequence[int]] | None = None,
     retrieval_k_values: Sequence[int] = (1, 5, 10),
     model_name: str = "unnamed",
 ) -> tuple[EmbeddingQualityReport, InterpretationReport]:
     emb_mat = _to_matrix(embeddings)
     n_samples = len(emb_mat)
     n_dims = len(emb_mat[0]) if n_samples > 0 else 0
+
+    _validate_inputs(n_samples, n_dims, hubness_k, low_dim, projection_k_values)
 
     report = EmbeddingQualityReport(
         model_name=model_name,
@@ -286,15 +323,15 @@ def evaluate_embedding_quality(
     report.sim_to_mean = sim_to_mean
 
     if labels is not None:
-        int_labels = [int(l) for l in labels]
-        int_pred = [int(l) for l in labels_pred] if labels_pred is not None else None
+        int_labels = [int(label) for label in labels]
+        int_pred = [int(label) for label in labels_pred] if labels_pred is not None else None
         report.clustering = _compute_clustering(emb_mat, int_labels, int_pred)
 
     if low_dim is not None:
         low_mat = _to_matrix(low_dim)
-        for k in projection_k_values:
-            t = trustworthiness(emb_mat, low_mat, k)
-            c = continuity(emb_mat, low_mat, k)
+        # One Rust pass: both k-NN rank matrices are built once and reused
+        # for every k value.
+        for k, t, c in projection_quality(emb_mat, low_mat, projection_k_values):
             report.projection.append(ProjectionMetrics(k=k, trustworthiness=t, continuity=c))
 
     if retrieved is not None or relevant is not None:
@@ -302,13 +339,20 @@ def evaluate_embedding_quality(
             raise ValueError(
                 "Both `retrieved` and `relevant` must be provided for retrieval metrics."
             )
+        if len(retrieved) != len(relevant):
+            raise ValueError(
+                f"`retrieved` and `relevant` must have the same number of queries, "
+                f"got {len(retrieved)} and {len(relevant)}."
+            )
+        if not retrieval_k_values:
+            raise ValueError(
+                "retrieval_k_values must not be empty when retrieval data is provided."
+            )
         ret_lists = [list(r) for r in retrieved]
         rel_lists = [list(r) for r in relevant]
         n_queries = len(ret_lists)
 
-        mrr_values = [
-            mean_reciprocal_rank(ret_lists[i], rel_lists[i]) for i in range(n_queries)
-        ]
+        mrr_values = [mean_reciprocal_rank(ret_lists[i], rel_lists[i]) for i in range(n_queries)]
         mean_mrr = _mean(mrr_values)
 
         for k in retrieval_k_values:
@@ -317,14 +361,16 @@ def evaluate_embedding_quality(
             ndcg_vals = [ndcg_at_k(ret_lists[i], rel_lists[i], k) for i in range(n_queries)]
             cov = coverage_at_k(ret_lists, rel_lists, k)
 
-            report.retrieval.append(RetrievalMetrics(
-                k=k,
-                recall=_mean(recall_vals),
-                precision=_mean(prec_vals),
-                mrr=mean_mrr,
-                ndcg=_mean(ndcg_vals),
-                coverage=cov,
-            ))
+            report.retrieval.append(
+                RetrievalMetrics(
+                    k=k,
+                    recall=_mean(recall_vals),
+                    precision=_mean(prec_vals),
+                    mrr=mean_mrr,
+                    ndcg=_mean(ndcg_vals),
+                    coverage=cov,
+                )
+            )
 
     interpretation = ExplanationRegistry.explain_all(report)
     return report, interpretation
@@ -333,13 +379,13 @@ def evaluate_embedding_quality(
 def compare_models(
     models: dict[str, MatrixLike],
     *,
-    labels: Optional[Sequence[int]] = None,
-    labels_pred: Optional[Sequence[int]] = None,
+    labels: Sequence[int] | None = None,
+    labels_pred: Sequence[int] | None = None,
     hubness_k: int = 5,
-    low_dims: Optional[dict[str, MatrixLike]] = None,
+    low_dims: dict[str, MatrixLike] | None = None,
     projection_k_values: Sequence[int] = (5, 10, 20),
-    retrieved: Optional[dict[str, Sequence[Sequence[int]]]] = None,
-    relevant: Optional[Sequence[Sequence[int]]] = None,
+    retrieved: dict[str, Sequence[Sequence[int]]] | None = None,
+    relevant: Sequence[Sequence[int]] | None = None,
     retrieval_k_values: Sequence[int] = (1, 5, 10),
 ) -> tuple[list[EmbeddingQualityReport], list[InterpretationReport]]:
     reports: list[EmbeddingQualityReport] = []

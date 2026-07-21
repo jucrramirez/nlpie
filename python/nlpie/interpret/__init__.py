@@ -1,11 +1,12 @@
 from .base import Explanation, ExplanationProvider, InterpretationReport
-from .hubness import HubnessExplanation, HubInfo, explain_hubness, HubnessExplanationProvider
-from .intrinsic import IntrinsicExplanationProvider
 from .clustering import ClusteringExplanationProvider
 from .geometry import GeometryExplanationProvider
+from .hubness import HubInfo, HubnessExplanation, HubnessExplanationProvider, explain_hubness
+from .intrinsic import IntrinsicExplanationProvider
 from .projection import ProjectionExplanationProvider
-from .retrieval import RetrievalExplanationProvider
 from .registry import ExplanationRegistry
+from .retrieval import RetrievalExplanationProvider
+from .story import StoryData, StoryGroup, build_story
 
 ExplanationRegistry.register(HubnessExplanationProvider())
 ExplanationRegistry.register(IntrinsicExplanationProvider())
@@ -22,4 +23,13 @@ __all__ = [
     "HubInfo",
     "explain_hubness",
     "ExplanationRegistry",
+    "HubnessExplanationProvider",
+    "IntrinsicExplanationProvider",
+    "ClusteringExplanationProvider",
+    "GeometryExplanationProvider",
+    "ProjectionExplanationProvider",
+    "RetrievalExplanationProvider",
+    "StoryData",
+    "StoryGroup",
+    "build_story",
 ]

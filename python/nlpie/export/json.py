@@ -67,8 +67,13 @@ class JsonExporter(ReportExporter):
             explanations = getattr(interpretation, "explanations", None)
             if explanations:
                 data["interpretation"] = [
-                    {"metric": e.metric, "severity": e.severity, "summary": e.summary,
-                     "recommendation": getattr(e, "recommendation", "")}
+                    {
+                        "metric": e.metric,
+                        "severity": e.severity,
+                        "summary": e.summary,
+                        "detail": getattr(e, "detail", ""),
+                        "recommendation": getattr(e, "recommendation", ""),
+                    }
                     for e in explanations
                 ]
         return json.dumps(data, indent=self.indent)

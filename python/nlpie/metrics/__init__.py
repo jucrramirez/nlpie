@@ -1,15 +1,13 @@
 from .quality import (
-    EmbeddingQualityReport,
-    IntrinsicMetrics,
     ClusteringMetrics,
+    EmbeddingQualityReport,
     GeometryMetrics,
+    IntrinsicMetrics,
     ProjectionMetrics,
     RetrievalMetrics,
-    evaluate_embedding_quality,
     compare_models,
+    evaluate_embedding_quality,
 )
-from .projection import evaluate_projection, ProjectionReport
-from .retrieval import evaluate_retrieval, RetrievalReport
 
 __all__ = [
     "EmbeddingQualityReport",
@@ -20,8 +18,4 @@ __all__ = [
     "RetrievalMetrics",
     "evaluate_embedding_quality",
     "compare_models",
-    "evaluate_projection",
-    "ProjectionReport",
-    "evaluate_retrieval",
-    "RetrievalReport",
 ]

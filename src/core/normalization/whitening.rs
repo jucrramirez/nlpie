@@ -1,7 +1,7 @@
 use super::centering::mean_center;
 use super::utils::ensure_non_empty;
 use crate::errors::PreprocessingError;
-use ndarray::{s, Array1, Array2};
+use ndarray::{Array1, Array2, s};
 use ndarray_linalg::{Eigh, UPLO};
 
 /// Holds the model state after fitting PCA whitening.

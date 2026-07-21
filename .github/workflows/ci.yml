@@ -6,7 +6,73 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy, rustfmt
+      - uses: astral-sh/setup-uv@v5
+      - name: Clippy
+        run: cargo clippy --all-targets --features extension-module -- -D warnings
+      - name: Rust fmt
+        run: cargo fmt --check
+
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: astral-sh/setup-uv@v5
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libopenblas-dev
+          sudo ldconfig
+      - name: Install toolchain (Windows, for openblas-static)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+      - name: Add MSYS2 to PATH (Windows)
+        if: runner.os == 'Windows'
+        run: echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Install maturin
+        run: uv pip install --system maturin
+      - name: Sync dependencies (no build — maturin develop handles it)
+        run: uv sync --all-extras --no-install-project
+      - name: Build Rust extension (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: uv run --no-sync maturin develop
+      - name: Install OpenBLAS (Windows, vcpkg)
+        if: runner.os == 'Windows'
+        run: vcpkg install openblas:x64-windows-static-md
+      - name: Build Rust extension (Windows, static OpenBLAS via vcpkg)
+        if: runner.os == 'Windows'
+        run: uv run --no-sync maturin develop --features "extension-module,openblas-static,ndarray-linalg/openblas-system,openblas-src/rustls"
+      - name: Run Python tests
+        run: uv run pytest tests/ -v
+      - name: Run Rust tests
+        run: cargo test
+
+  wheel:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,18 +80,30 @@ jobs:
         with:
           python-version: "3.12"
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/0.4.0/install.sh | sh
+      - uses: astral-sh/setup-uv@v5
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y gfortran libopenblas-dev
-          sudo ldconfig
-      - name: Sync dependencies
-        run: uv sync --all-extras
-      - name: Build Rust extension
-        run: uv run maturin develop
-      - name: Run Python tests
-        run: uv run pytest tests/ -v
-      - name: Run Rust tests
-        run: cargo test
+      - name: Create venv
+        run: uv venv
+      - name: Install maturin
+        run: uv pip install maturin
+      - name: Build wheel
+        run: uv run maturin build --release --out target/wheels
+      - name: Verify type stubs are packaged
+        run: |
+          echo "Looking for wheels..."
+          ls -la target/wheels/
+          WHEEL=$(ls -S target/wheels/*.whl | head -1)
+          if [ -z "$WHEEL" ]; then
+            find . -name "*.whl"
+            exit 1
+          fi
+          unzip -l "$WHEEL" | grep -q "nlpie/_nlpie_core.pyi"
+          unzip -l "$WHEEL" | grep -q "nlpie/py.typed"
+      - name: Validate PEP 517 install (same path as `pip install git+...`)
+        run: |
+          uv venv /tmp/pkgtest
+          uv pip install --python /tmp/pkgtest/bin/python .
+          /tmp/pkgtest/bin/python -c "import nlpie; print('install OK:', nlpie.EmbeddingQualityReport)"

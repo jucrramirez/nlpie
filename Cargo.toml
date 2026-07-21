@@ -9,6 +9,11 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 extension-module = ["dep:pyo3", "pyo3/extension-module", "dep:numpy"]
+# BLAS/LAPACK backend fallback: compiles OpenBLAS from source and links it
+# statically, so no system-level BLAS installation is required. Use when the
+# default system linkage fails (e.g. Windows, or Linux without libopenblas-dev).
+# Requires a C/Fortran toolchain; the first build is slow.
+openblas-static = ["ndarray-linalg/openblas-static"]
 
 [dependencies]
 pyo3 = { version = "0.28.3", optional = true }

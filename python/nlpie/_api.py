@@ -1,9 +1,10 @@
 """Public high-level Python API for the nlpie embedding normalization library."""
 
-import numpy as np
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import wraps
-from typing import Optional, Sequence, Tuple
+
+import numpy as np
 
 # Try importing the compiled binary extension module
 try:
@@ -27,8 +28,9 @@ class FitStats:
         mean: The column-wise mean vector of the dataset.
         std: The column-wise standard deviation vector (if computed).
     """
+
     mean: list[float]
-    std: Optional[list[float]] = None
+    std: list[float] | None = None
 
     @classmethod
     def _from_rust(cls, rust_stats) -> "FitStats":
@@ -45,6 +47,7 @@ class WhitenModel:
         eigenvalues: The eigenvalues corresponding to the principal components.
         eps: The epsilon value used to avoid division by zero.
     """
+
     mean: list[float]
     projection: list[list[float]]
     eigenvalues: list[float]
@@ -69,9 +72,7 @@ def _to_matrix(embeddings: MatrixLike) -> np.ndarray:
         return np.empty((0, 0), dtype=np.float32)
     arr = np.asarray(embeddings, dtype=np.float32)
     if arr.ndim != 2:
-        raise TypeError(
-            f"Embeddings must be a 2D matrix, got {arr.ndim}D array"
-        )
+        raise TypeError(f"Embeddings must be a 2D matrix, got {arr.ndim}D array")
     return arr
 
 
@@ -87,15 +88,19 @@ def _to_vector(vector: VectorLike) -> list[float]:
 
 
 def _wrap_exceptions(func):
-    """Decorator to intercept PyO3 value/runtime errors and raise PreprocessingError."""
+    """Decorator to intercept PyO3 value/overflow errors and raise PreprocessingError."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except ValueError as e:
             raise PreprocessingError(str(e)) from e
-        except RuntimeError as e:
-            raise PreprocessingError(f"Runtime failure during preprocessing: {e}") from e
+        except OverflowError as e:
+            # Raised by PyO3 when e.g. a negative label/ID does not fit the
+            # Rust parameter type (usize) — surface it as a domain error.
+            raise PreprocessingError(f"Value out of range for the native extension: {e}") from e
+
     return wrapper
 
 
@@ -131,22 +136,24 @@ def cosine_similarity_matrix(embeddings: MatrixLike, eps: float = 1e-12) -> list
 
 
 @_wrap_exceptions
-def cosine_similarity_matrix_stats(
+def pairwise_cosine_stats(
     embeddings: MatrixLike, eps: float = 1e-12
-) -> tuple[list[list[float]], float, float, float, float]:
-    """Computes the cosine similarity matrix and its off-diagonal summary statistics.
+) -> tuple[list[float], float, float, float, float]:
+    """Computes all pairwise cosine similarities and their summary statistics.
 
-    The mean, std, min, and max of the upper-triangle entries are computed
-    in a single Rust pass, avoiding an O(N²) Python loop.
+    The flattened upper triangle (i < j, row-major order, exactly
+    ``n * (n - 1) / 2`` values) plus mean, std, min, and max are computed in a
+    single Rust pass — the full N x N matrix never crosses into Python. Use
+    :func:`cosine_similarity_matrix` when the full matrix is actually needed.
 
     Args:
         embeddings: The 2D embedding matrix.
         eps: Small value to prevent division by zero during normalization.
 
     Returns:
-        A tuple (matrix, mean, std, min, max).
+        A tuple (upper_triangle, mean, std, min, max).
     """
-    return _nlpie_core.cosine_similarity_matrix_stats(_to_matrix(embeddings), eps)
+    return _nlpie_core.pairwise_cosine_stats(_to_matrix(embeddings), eps)
 
 
 @_wrap_exceptions
@@ -177,7 +184,6 @@ def spearman_correlation(x: VectorLike, y: VectorLike) -> float:
     return _nlpie_core.spearman_correlation(_to_vector(x), _to_vector(y))
 
 
-
 @_wrap_exceptions
 def l2_normalize_rows(embeddings: MatrixLike, eps: float = 1e-12) -> list[list[float]]:
     """Applies L2 normalization to each row of the embedding matrix.
@@ -193,7 +199,7 @@ def l2_normalize_rows(embeddings: MatrixLike, eps: float = 1e-12) -> list[list[f
 
 
 @_wrap_exceptions
-def mean_center(embeddings: MatrixLike) -> Tuple[list[list[float]], FitStats]:
+def mean_center(embeddings: MatrixLike) -> tuple[list[list[float]], FitStats]:
     """Centers the embedding matrix by subtracting the mean of each column.
 
     Args:
@@ -210,7 +216,9 @@ def mean_center(embeddings: MatrixLike) -> Tuple[list[list[float]], FitStats]:
 
 
 @_wrap_exceptions
-def standardize_columns(embeddings: MatrixLike, eps: float = 1e-12) -> Tuple[list[list[float]], FitStats]:
+def standardize_columns(
+    embeddings: MatrixLike, eps: float = 1e-12
+) -> tuple[list[list[float]], FitStats]:
     """Standardizes columns of the embedding matrix (zero mean, unit variance).
 
     Args:
@@ -229,8 +237,8 @@ def standardize_columns(embeddings: MatrixLike, eps: float = 1e-12) -> Tuple[lis
 
 @_wrap_exceptions
 def whiten_pca(
-    embeddings: MatrixLike, n_components: Optional[int] = None, eps: float = 1e-12
-) -> Tuple[list[list[float]], WhitenModel]:
+    embeddings: MatrixLike, n_components: int | None = None, eps: float = 1e-12
+) -> tuple[list[list[float]], WhitenModel]:
     """Applies PCA whitening transformation to the embeddings.
 
     Args:
@@ -293,7 +301,7 @@ class EmbeddingPreprocessor:
         return self._preprocessor.l2_normalize_rows(_to_matrix(embeddings))
 
     @_wrap_exceptions
-    def mean_center(self, embeddings: MatrixLike) -> Tuple[list[list[float]], FitStats]:
+    def mean_center(self, embeddings: MatrixLike) -> tuple[list[list[float]], FitStats]:
         """Centers the embedding matrix by subtracting the mean of each column.
 
         Args:
@@ -306,7 +314,7 @@ class EmbeddingPreprocessor:
         return centered, FitStats._from_rust(rust_stats)
 
     @_wrap_exceptions
-    def standardize_columns(self, embeddings: MatrixLike) -> Tuple[list[list[float]], FitStats]:
+    def standardize_columns(self, embeddings: MatrixLike) -> tuple[list[list[float]], FitStats]:
         """Standardizes columns of the embedding matrix to zero mean and unit variance.
 
         Args:
@@ -320,8 +328,8 @@ class EmbeddingPreprocessor:
 
     @_wrap_exceptions
     def whiten_pca(
-        self, embeddings: MatrixLike, n_components: Optional[int] = None
-    ) -> Tuple[list[list[float]], WhitenModel]:
+        self, embeddings: MatrixLike, n_components: int | None = None
+    ) -> tuple[list[list[float]], WhitenModel]:
         """Applies PCA whitening to the embeddings.
 
         Args:
@@ -335,7 +343,9 @@ class EmbeddingPreprocessor:
         return whitened, WhitenModel._from_rust(rust_model)
 
     @_wrap_exceptions
-    def remove_top_principal_components(self, embeddings: MatrixLike, n_components: int) -> list[list[float]]:
+    def remove_top_principal_components(
+        self, embeddings: MatrixLike, n_components: int
+    ) -> list[list[float]]:
         """Removes the top principal components from the embeddings (debiasing).
 
         Args:
@@ -345,64 +355,77 @@ class EmbeddingPreprocessor:
         Returns:
             The debiased 2D embedding matrix.
         """
-        return self._preprocessor.remove_top_principal_components(_to_matrix(embeddings), n_components)
+        return self._preprocessor.remove_top_principal_components(
+            _to_matrix(embeddings), n_components
+        )
 
 
 # =============================================================================
 # Clustering Metrics
 # =============================================================================
 
+
 @_wrap_exceptions
 def adjusted_rand_index(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
     """Computes the Adjusted Rand Index (ARI)."""
     return _nlpie_core.adjusted_rand_index(list(labels_true), list(labels_pred))
+
 
 @_wrap_exceptions
 def normalized_mutual_info(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
     """Computes the Normalized Mutual Information (NMI)."""
     return _nlpie_core.normalized_mutual_info(list(labels_true), list(labels_pred))
 
+
 @_wrap_exceptions
 def purity_score(labels_true: Sequence[int], labels_pred: Sequence[int]) -> float:
     """Computes the Purity score."""
     return _nlpie_core.purity_score(list(labels_true), list(labels_pred))
+
 
 @_wrap_exceptions
 def calinski_harabasz_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
     """Computes the Calinski-Harabasz index."""
     return _nlpie_core.calinski_harabasz_score(_to_matrix(embeddings), list(labels))
 
+
 @_wrap_exceptions
 def silhouette_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
     """Computes the mean Silhouette Coefficient."""
     return _nlpie_core.silhouette_score(_to_matrix(embeddings), list(labels))
 
+
 # =============================================================================
 # Geometry & Pathology Metrics
 # =============================================================================
+
 
 @_wrap_exceptions
 def effective_rank(embeddings: MatrixLike) -> float:
     """Computes the effective rank of an embedding space."""
     return _nlpie_core.effective_rank(_to_matrix(embeddings))
 
+
 @_wrap_exceptions
 def similarity_to_global_mean(embeddings: MatrixLike) -> list[float]:
     """Computes the cosine similarity of each point to the global centroid."""
     return _nlpie_core.similarity_to_global_mean(_to_matrix(embeddings))
 
+
 @_wrap_exceptions
-def compute_hubness(embeddings: MatrixLike, k: int = 5) -> Tuple[list[int], float]:
+def compute_hubness(embeddings: MatrixLike, k: int = 5) -> tuple[list[int], float]:
     """Computes exact K-Nearest Neighbors hubness counts and skewness.
-    
+
     Returns:
         A tuple of (hubness_counts, skewness).
     """
     return _nlpie_core.compute_hubness(_to_matrix(embeddings), k)
 
+
 # =============================================================================
 # Projection Quality Metrics  (TASK-005)
 # =============================================================================
+
 
 @_wrap_exceptions
 def trustworthiness(
@@ -454,9 +477,37 @@ def continuity(
     return _nlpie_core.continuity(_to_matrix(high_dim), _to_matrix(low_dim), k)
 
 
+@_wrap_exceptions
+def projection_quality(
+    high_dim: MatrixLike,
+    low_dim: MatrixLike,
+    k_values: Sequence[int],
+) -> list[tuple[int, float, float]]:
+    """Computes trustworthiness and continuity for several ``k`` values in one pass.
+
+    Both O(N²) k-NN rank matrices are built exactly once in Rust and reused
+    for every ``k``, instead of being rebuilt per metric per ``k``.
+
+    Args:
+        high_dim: Embedding matrix in the original space ``(n_samples, d_high)``.
+        low_dim:  Embedding matrix in the projected space ``(n_samples, d_low)``.
+        k_values: Neighbourhood sizes to evaluate.
+
+    Returns:
+        A list of ``(k, trustworthiness, continuity)`` triples in the same
+        order as ``k_values``.
+
+    Raises:
+        PreprocessingError: If shapes are inconsistent, ``k_values`` is empty,
+            or any ``k`` is outside the valid domain.
+    """
+    return _nlpie_core.projection_quality(_to_matrix(high_dim), _to_matrix(low_dim), list(k_values))
+
+
 # =============================================================================
 # Retrieval and Ranking Metrics  (TASK-006)
 # =============================================================================
+
 
 @_wrap_exceptions
 def recall_at_k(

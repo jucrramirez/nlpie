@@ -1,9 +1,8 @@
 use crate::core::normalization::{
-    cosine_similarity as core_cosine_similarity, l2_normalize_rows as core_l2_normalize_rows,
-    mean_center as core_mean_center,
+    DEFAULT_EPS, EmbeddingPreprocessor, cosine_similarity as core_cosine_similarity,
+    l2_normalize_rows as core_l2_normalize_rows, mean_center as core_mean_center,
     remove_top_principal_components as core_remove_top_principal_components,
     standardize_columns as core_standardize_columns, whiten_pca as core_whiten_pca,
-    EmbeddingPreprocessor, DEFAULT_EPS,
 };
 use ndarray::Array2;
 use numpy::PyReadonlyArray2;
@@ -139,10 +138,7 @@ pub fn cosine_similarity(lhs: Vec<f32>, rhs: Vec<f32>) -> PyResult<f32> {
 
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps = DEFAULT_EPS))]
-pub fn l2_normalize_rows(
-    embeddings: PyReadonlyArray2<f32>,
-    eps: f32,
-) -> PyResult<Vec<Vec<f32>>> {
+pub fn l2_normalize_rows(embeddings: PyReadonlyArray2<f32>, eps: f32) -> PyResult<Vec<Vec<f32>>> {
     let arr = to_ndarray(embeddings);
     let normalized = core_l2_normalize_rows(&arr, eps);
     Ok(to_vec(normalized))
@@ -150,9 +146,7 @@ pub fn l2_normalize_rows(
 
 #[pyfunction]
 #[pyo3(signature = (embeddings))]
-pub fn mean_center(
-    embeddings: PyReadonlyArray2<f32>,
-) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
+pub fn mean_center(embeddings: PyReadonlyArray2<f32>) -> PyResult<(Vec<Vec<f32>>, PyFitStats)> {
     let arr = to_ndarray(embeddings);
     let (centered, stats) = core_mean_center(&arr)?;
     let py_stats = PyFitStats {

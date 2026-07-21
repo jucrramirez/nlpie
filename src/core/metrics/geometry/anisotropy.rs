@@ -31,7 +31,10 @@ pub fn effective_rank(eigenvalues: &Array1<f32>) -> Result<f32, PreprocessingErr
     }
 
     if sum <= 0.0 {
-        return Ok(1.0); // Degenerate space
+        // Degenerate space (no variance in any direction): there is no
+        // well-defined spectral distribution, so the space effectively
+        // uses zero dimensions.
+        return Ok(0.0);
     }
 
     let mut entropy = 0.0;
@@ -58,7 +61,7 @@ pub fn similarity_to_global_mean(
 
     let mut mean_vec = Array1::<f32>::zeros(n_features);
     for row in embeddings.rows() {
-        mean_vec = mean_vec + &row;
+        mean_vec = mean_vec + row;
     }
     mean_vec /= n_samples as f32;
 
@@ -89,4 +92,32 @@ pub fn similarity_to_global_mean(
     }
 
     Ok(similarities)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::{Array1, array};
+
+    #[test]
+    fn test_effective_rank_degenerate_spectrum_returns_zero() {
+        // All-zero eigenvalues (e.g. constant embeddings) have no entropy.
+        let eigenvalues = Array1::zeros(4);
+        assert_eq!(effective_rank(&eigenvalues).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_effective_rank_uniform_spectrum_equals_dimension() {
+        // Uniform spectrum → maximum entropy → effective rank == n_dims.
+        let eigenvalues = array![1.0f32, 1.0, 1.0, 1.0];
+        let rank = effective_rank(&eigenvalues).unwrap();
+        assert!((rank - 4.0).abs() < 1e-4, "expected ~4.0, got {rank}");
+    }
+
+    #[test]
+    fn test_effective_rank_single_dominant_component() {
+        let eigenvalues = array![100.0f32, 1e-8, 1e-8, 1e-8];
+        let rank = effective_rank(&eigenvalues).unwrap();
+        assert!(rank < 1.1, "expected rank near 1.0, got {rank}");
+    }
 }
