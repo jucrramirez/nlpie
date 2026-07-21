@@ -61,9 +61,12 @@ jobs:
       - name: Build Rust extension (Linux/macOS)
         if: runner.os != 'Windows'
         run: uv run --no-sync maturin develop
-      - name: Build Rust extension (Windows, static OpenBLAS fallback)
+      - name: Install OpenBLAS (Windows, vcpkg)
         if: runner.os == 'Windows'
-        run: uv run --no-sync maturin develop --features extension-module,openblas-static
+        run: vcpkg install openblas:x64-windows-static-md
+      - name: Build Rust extension (Windows, static OpenBLAS via vcpkg)
+        if: runner.os == 'Windows'
+        run: uv run --no-sync maturin develop --features "extension-module,openblas-static,ndarray-linalg/openblas-system,openblas-src/rustls"
       - name: Run Python tests
         run: uv run pytest tests/ -v
       - name: Run Rust tests
