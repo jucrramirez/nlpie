@@ -60,10 +60,10 @@ jobs:
         run: uv sync --all-extras --no-install-project
       - name: Build Rust extension (Linux/macOS)
         if: runner.os != 'Windows'
-        run: uv run maturin develop
+        run: uv run --no-sync maturin develop
       - name: Build Rust extension (Windows, static OpenBLAS fallback)
         if: runner.os == 'Windows'
-        run: uv run maturin develop --features extension-module,openblas-static
+        run: uv run --no-sync maturin develop --features extension-module,openblas-static
       - name: Run Python tests
         run: uv run pytest tests/ -v
       - name: Run Rust tests
