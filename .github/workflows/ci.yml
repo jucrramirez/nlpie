@@ -46,10 +46,10 @@ jobs:
           msystem: MINGW64
           update: true
           install: mingw-w64-x86_64-gcc-fortran
-      - name: Sync dependencies
-        run: uv sync --all-extras
       - name: Install maturin
         run: uv pip install maturin
+      - name: Sync dependencies
+        run: uv sync --all-extras
       - name: Build Rust extension (Linux/macOS)
         if: runner.os != 'Windows'
         run: uv run maturin develop
@@ -74,6 +74,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gfortran libopenblas-dev
+      - name: Install maturin
+        run: uv pip install maturin
       - name: Build wheel
         run: uv run maturin build --release
       - name: Verify type stubs are packaged
