@@ -60,7 +60,11 @@ pub fn precision_at_k(
         return Ok(0.0);
     }
     let relevant_set: std::collections::HashSet<usize> = relevant.iter().copied().collect();
-    let hits = retrieved.iter().take(k).filter(|r| relevant_set.contains(r)).count();
+    let hits = retrieved
+        .iter()
+        .take(k)
+        .filter(|r| relevant_set.contains(r))
+        .count();
     Ok(hits as f64 / k as f64)
 }
 

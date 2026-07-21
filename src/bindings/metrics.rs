@@ -1,11 +1,12 @@
 use crate::core::metrics::basic::{
     cosine_similarity_matrix as core_cosine_similarity_matrix,
-    cosine_similarity_matrix_stats as core_cosine_similarity_matrix_stats,
+    pairwise_cosine_stats as core_pairwise_cosine_stats,
     pearson_correlation as core_pearson_correlation,
     spearman_correlation as core_spearman_correlation,
 };
 use crate::core::metrics::clustering::labels::{
-    adjusted_rand_index as core_ari, normalized_mutual_info as core_nmi, purity_score as core_purity,
+    adjusted_rand_index as core_ari, normalized_mutual_info as core_nmi,
+    purity_score as core_purity,
 };
 use crate::core::metrics::clustering::quality::{
     calinski_harabasz_score as core_ch_score, silhouette_score as core_silhouette,
@@ -16,15 +17,13 @@ use crate::core::metrics::geometry::anisotropy::{
 };
 use crate::core::metrics::geometry::hubness::compute_hubness as core_hubness;
 use crate::core::metrics::projection::trustworthiness::{
+    continuity as core_continuity, projection_quality as core_projection_quality,
     trustworthiness as core_trustworthiness,
-    continuity as core_continuity,
 };
 use crate::core::metrics::retrieval::ranking::{
+    coverage_at_k as core_coverage_at_k, mean_reciprocal_rank as core_mrr,
+    ndcg_at_k as core_ndcg_at_k, precision_at_k as core_precision_at_k,
     recall_at_k as core_recall_at_k,
-    precision_at_k as core_precision_at_k,
-    mean_reciprocal_rank as core_mrr,
-    ndcg_at_k as core_ndcg_at_k,
-    coverage_at_k as core_coverage_at_k,
 };
 
 use crate::core::normalization::DEFAULT_EPS;
@@ -58,18 +57,26 @@ pub fn cosine_similarity_matrix(
     Ok(to_vec(sim_matrix))
 }
 
-/// Computes the N x N cosine similarity matrix with summary statistics.
+/// Computes the flattened upper triangle (i < j) of the pairwise cosine
+/// similarity matrix together with summary statistics in a single Rust pass.
 ///
-/// Returns (matrix, mean, std, min, max).
+/// Returns (upper_triangle, mean, std, min, max). The triangle contains
+/// exactly `n * (n - 1) / 2` values in row-major order.
 #[pyfunction]
 #[pyo3(signature = (embeddings, eps=DEFAULT_EPS))]
-pub fn cosine_similarity_matrix_stats(
+pub fn pairwise_cosine_stats(
     embeddings: PyReadonlyArray2<f32>,
     eps: f32,
-) -> PyResult<(Vec<Vec<f32>>, f32, f32, f32, f32)> {
+) -> PyResult<(Vec<f32>, f32, f32, f32, f32)> {
     let arr = to_ndarray(embeddings);
-    let (matrix, stats) = core_cosine_similarity_matrix_stats(&arr, eps);
-    Ok((to_vec(matrix), stats.mean, stats.std, stats.min_val, stats.max_val))
+    let (triangle, stats) = core_pairwise_cosine_stats(&arr, eps);
+    Ok((
+        triangle,
+        stats.mean,
+        stats.std,
+        stats.min_val,
+        stats.max_val,
+    ))
 }
 
 /// Computes the Pearson correlation coefficient between two 1D vectors.
@@ -133,6 +140,7 @@ pub fn similarity_to_global_mean(embeddings: PyReadonlyArray2<f32>) -> PyResult<
 }
 
 #[pyfunction]
+#[pyo3(signature = (embeddings, k = 5))]
 pub fn compute_hubness(embeddings: PyReadonlyArray2<f32>, k: usize) -> PyResult<(Vec<usize>, f32)> {
     let arr = to_ndarray(embeddings);
     core_hubness(&arr, k).map_err(Into::into)
@@ -172,6 +180,23 @@ pub fn continuity(
     core_continuity(&high, &low, k).map_err(Into::into)
 }
 
+/// Computes trustworthiness and continuity for several `k` values in one pass.
+///
+/// Both O(N²) k-NN rank matrices are built exactly once and reused for every
+/// `k`. Returns a list of `(k, trustworthiness, continuity)` triples in the
+/// same order as `k_values`.
+#[pyfunction]
+#[pyo3(signature = (high_dim, low_dim, k_values))]
+pub fn projection_quality(
+    high_dim: PyReadonlyArray2<f32>,
+    low_dim: PyReadonlyArray2<f32>,
+    k_values: Vec<usize>,
+) -> PyResult<Vec<(usize, f32, f32)>> {
+    let high = to_ndarray(high_dim);
+    let low = to_ndarray(low_dim);
+    core_projection_quality(&high, &low, &k_values).map_err(Into::into)
+}
+
 // ================= Retrieval & Ranking Metrics =================
 
 /// Computes Recall\@K for a single query.
@@ -179,21 +204,13 @@ pub fn continuity(
 /// `retrieved` is a ranked list of document IDs (most-relevant first).
 /// `relevant` is the ground-truth set of relevant document IDs.
 #[pyfunction]
-pub fn recall_at_k(
-    retrieved: Vec<usize>,
-    relevant: Vec<usize>,
-    k: usize,
-) -> PyResult<f64> {
+pub fn recall_at_k(retrieved: Vec<usize>, relevant: Vec<usize>, k: usize) -> PyResult<f64> {
     core_recall_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
 /// Computes Precision\@K for a single query.
 #[pyfunction]
-pub fn precision_at_k(
-    retrieved: Vec<usize>,
-    relevant: Vec<usize>,
-    k: usize,
-) -> PyResult<f64> {
+pub fn precision_at_k(retrieved: Vec<usize>, relevant: Vec<usize>, k: usize) -> PyResult<f64> {
     core_precision_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 
@@ -209,11 +226,7 @@ pub fn mean_reciprocal_rank(retrieved: Vec<usize>, relevant: Vec<usize>) -> PyRe
 ///
 /// Uses binary relevance judgements.
 #[pyfunction]
-pub fn ndcg_at_k(
-    retrieved: Vec<usize>,
-    relevant: Vec<usize>,
-    k: usize,
-) -> PyResult<f64> {
+pub fn ndcg_at_k(retrieved: Vec<usize>, relevant: Vec<usize>, k: usize) -> PyResult<f64> {
     core_ndcg_at_k(&retrieved, &relevant, k).map_err(Into::into)
 }
 

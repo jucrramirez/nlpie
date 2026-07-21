@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -51,9 +50,13 @@ class InterpretationReport:
 
 class ExplanationProvider(ABC):
     @abstractmethod
-    def metric_keys(self) -> list[str]:
-        ...
+    def metric_keys(self) -> list[str]: ...
 
     @abstractmethod
-    def explain(self, report) -> Optional[Explanation]:
+    def explain(self, report) -> list[Explanation]:
+        """Explain the metrics this provider covers.
+
+        Returns one :class:`Explanation` per covered metric present in the
+        report, or an empty list when the report lacks the relevant sections.
+        """
         ...

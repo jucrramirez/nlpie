@@ -1,9 +1,12 @@
 use crate::errors::PreprocessingError;
 use std::collections::HashMap;
 
+type LabelCounts = HashMap<i32, usize>;
+type ContingencyTable = (HashMap<(i32, i32), usize>, LabelCounts, LabelCounts);
+
 /// Builds a contingency table from two label vectors.
 /// Returns a map from (label_u, label_v) to counts, and maps of marginals.
-fn build_contingency_table(u: &[i32], v: &[i32]) -> (HashMap<(i32, i32), usize>, HashMap<i32, usize>, HashMap<i32, usize>) {
+fn build_contingency_table(u: &[i32], v: &[i32]) -> ContingencyTable {
     let mut contingency = HashMap::new();
     let mut a_sums = HashMap::new();
     let mut b_sums = HashMap::new();
@@ -22,11 +25,14 @@ fn comb2(n: usize) -> f64 {
 }
 
 /// Computes the Adjusted Rand Index (ARI) between two clustering assignments.
-pub fn adjusted_rand_index(labels_true: &[i32], labels_pred: &[i32]) -> Result<f64, PreprocessingError> {
+pub fn adjusted_rand_index(
+    labels_true: &[i32],
+    labels_pred: &[i32],
+) -> Result<f64, PreprocessingError> {
     if labels_true.len() != labels_pred.len() || labels_true.is_empty() {
         return Err(PreprocessingError::InvalidShape);
     }
-    
+
     let n = labels_true.len();
     if n < 2 {
         return Ok(1.0);
@@ -62,7 +68,10 @@ pub fn adjusted_rand_index(labels_true: &[i32], labels_pred: &[i32]) -> Result<f
 }
 
 /// Computes the Normalized Mutual Information (NMI) between two clustering assignments.
-pub fn normalized_mutual_info(labels_true: &[i32], labels_pred: &[i32]) -> Result<f64, PreprocessingError> {
+pub fn normalized_mutual_info(
+    labels_true: &[i32],
+    labels_pred: &[i32],
+) -> Result<f64, PreprocessingError> {
     if labels_true.len() != labels_pred.len() || labels_true.is_empty() {
         return Err(PreprocessingError::InvalidShape);
     }
@@ -112,7 +121,7 @@ pub fn purity_score(labels_true: &[i32], labels_pred: &[i32]) -> Result<f64, Pre
     }
 
     let (contingency, _, _) = build_contingency_table(labels_true, labels_pred);
-    
+
     // For each cluster in predicted, find the max overlap with any true class
     let mut max_overlaps = HashMap::new();
     for (&(_a, b), &count) in &contingency {

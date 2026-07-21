@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Sequence
 
+from ..thresholds import HUBNESS_CRITICAL, HUBNESS_LOW, HUBNESS_WARNING
 from .base import Explanation, ExplanationProvider
 
 
@@ -25,18 +26,42 @@ class HubnessExplanation:
 
 
 _INTERPRETATIONS = {
-    "severe": "The K-NN distribution is heavily right-skewed — a small number of points (hubs) appear in the neighbour lists of a large fraction of other points. This can degrade retrieval quality and distort downstream evaluation.",
-    "moderate": "The distribution shows moderate skew. Some points are acting as hubs; consider contrastive post-processing or examining the affected points if retrieval quality is a concern.",
-    "low": "The embedding space is fairly well-behaved. Slight skew is present but unlikely to cause practical issues for most downstream tasks.",
+    "severe": (
+        "The K-NN distribution is heavily right-skewed — a small number of points (hubs) "
+        "appear in the neighbour lists of a large fraction of other points. This can "
+        "degrade retrieval quality and distort downstream evaluation."
+    ),
+    "moderate": (
+        "The distribution shows moderate skew. Some points are acting as hubs; consider "
+        "contrastive post-processing or examining the affected points if retrieval "
+        "quality is a concern."
+    ),
+    "low": (
+        "The embedding space is fairly well-behaved. Slight skew is present but "
+        "unlikely to cause practical issues for most downstream tasks."
+    ),
     "none": "The embedding space shows no significant hubness pathology.",
+}
+
+_RECOMMENDATIONS = {
+    "severe": (
+        "Consider applying PCA whitening, contrastive loss post-processing, or "
+        "removing hub points before downstream tasks."
+    ),
+    "moderate": (
+        "Monitor hubness in downstream tasks. Consider contrastive post-processing "
+        "if retrieval quality is affected."
+    ),
+    "low": "No action required.",
+    "none": "No action required.",
 }
 
 
 def _classify_severity(
     skewness: float,
-    severe_threshold: float = 1.0,
-    moderate_threshold: float = 0.5,
-    low_threshold: float = 0.25,
+    severe_threshold: float = HUBNESS_CRITICAL,
+    moderate_threshold: float = HUBNESS_WARNING,
+    low_threshold: float = HUBNESS_LOW,
 ) -> tuple[str, str]:
     thresholds = [
         ("severe", severe_threshold),
@@ -54,8 +79,8 @@ def explain_hubness(
     skewness: float,
     k: int,
     *,
-    severe_threshold: float = 1.0,
-    moderate_threshold: float = 0.5,
+    severe_threshold: float = HUBNESS_CRITICAL,
+    moderate_threshold: float = HUBNESS_WARNING,
     top_n: int = 5,
 ) -> HubnessExplanation:
     n_samples = len(counts)
@@ -65,9 +90,7 @@ def explain_hubness(
     mean_count = float(k)
     max_count = max(counts)
 
-    top_indices = sorted(
-        range(n_samples), key=lambda i: counts[i], reverse=True
-    )[:top_n]
+    top_indices = sorted(range(n_samples), key=lambda i: counts[i], reverse=True)[:top_n]
     total_slots = n_samples * k
     top_hubs = [
         HubInfo(
@@ -97,15 +120,9 @@ def explain_hubness(
             f"The K-NN distribution is heavily right-skewed."
         )
     elif severity == "moderate":
-        summary = (
-            f"Moderate hubness detected (skewness={skewness:.2f}). "
-            f"Some points act as hubs."
-        )
+        summary = f"Moderate hubness detected (skewness={skewness:.2f}). Some points act as hubs."
     elif severity == "low":
-        summary = (
-            f"Low hubness (skewness={skewness:.2f}). "
-            f"The space is fairly well-behaved."
-        )
+        summary = f"Low hubness (skewness={skewness:.2f}). The space is fairly well-behaved."
     else:
         summary = (
             f"Negligible hubness (skewness={skewness:.2f}). "
@@ -135,32 +152,22 @@ class HubnessExplanationProvider(ExplanationProvider):
     def metric_keys(self) -> list[str]:
         return ["hubness"]
 
-    def explain(self, report) -> Optional[Explanation]:
+    def explain(self, report) -> list[Explanation]:
         geometry = getattr(report, "geometry", None)
         if geometry is None:
-            return None
+            return []
 
-        skewness = geometry.hubness_skewness
-        raw_severity, interpretation = _classify_severity(skewness)
-        severity = _SEVERITY_MAP.get(raw_severity, "info")
+        counts = getattr(report, "hubness_counts", None) or []
+        if not counts:
+            return []
 
-        if raw_severity == "severe":
-            summary = f"Severe hubness detected (skewness={skewness:.2f}). The K-NN distribution is heavily right-skewed."
-            recommendation = "Consider applying PCA whitening, contrastive loss post-processing, or removing hub points before downstream tasks."
-        elif raw_severity == "moderate":
-            summary = f"Moderate hubness detected (skewness={skewness:.2f}). Some points act as hubs."
-            recommendation = "Monitor hubness in downstream tasks. Consider contrastive post-processing if retrieval quality is affected."
-        elif raw_severity == "low":
-            summary = f"Low hubness (skewness={skewness:.2f}). The space is fairly well-behaved."
-            recommendation = "No action required."
-        else:
-            summary = f"Negligible hubness (skewness={skewness:.2f}). No significant hubness pathology detected."
-            recommendation = "No action required."
-
-        return Explanation(
-            metric="hubness",
-            severity=severity,
-            summary=summary,
-            detail=interpretation,
-            recommendation=recommendation,
-        )
+        hub = explain_hubness(counts, geometry.hubness_skewness, geometry.hubness_k)
+        return [
+            Explanation(
+                metric="hubness",
+                severity=_SEVERITY_MAP.get(hub.severity, "info"),
+                summary=hub.summary,
+                detail=hub.interpretation,
+                recommendation=_RECOMMENDATIONS.get(hub.severity, "No action required."),
+            )
+        ]

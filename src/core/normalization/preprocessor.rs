@@ -1,7 +1,7 @@
-use super::centering::{mean_center, FitStats};
+use super::centering::{FitStats, mean_center};
 use super::standardization::standardize_columns;
-use super::utils::{l2_normalize_rows, DEFAULT_EPS};
-use super::whitening::{remove_top_principal_components, whiten_pca, WhitenModel};
+use super::utils::{DEFAULT_EPS, l2_normalize_rows};
+use super::whitening::{WhitenModel, remove_top_principal_components, whiten_pca};
 use crate::errors::PreprocessingError;
 use ndarray::Array2;
 

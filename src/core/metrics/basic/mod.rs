@@ -1,14 +1,14 @@
-use crate::core::normalization::{l2_normalize_rows, DEFAULT_EPS};
+use crate::core::normalization::{DEFAULT_EPS, l2_normalize_rows};
 use crate::errors::PreprocessingError;
 use ndarray::Array2;
 use std::cmp::Ordering;
 
 /// Computes the N x N cosine similarity matrix for an N x D embedding matrix.
-/// 
+///
 /// # Arguments
 /// * `embeddings` - A 2D array of embeddings.
 /// * `eps` - A small value to avoid division by zero during row normalization.
-/// 
+///
 /// # Returns
 /// An N x N array containing pairwise cosine similarities.
 pub fn cosine_similarity_matrix(embeddings: &Array2<f32>, eps: f32) -> Array2<f32> {
@@ -25,21 +25,20 @@ pub struct SimilarityStats {
     pub max_val: f32,
 }
 
-/// Computes the N x N cosine similarity matrix and returns it together with
-/// summary statistics (mean, std, min, max) of the off-diagonal entries.
+/// Computes the pairwise cosine similarities of the upper triangle (i < j)
+/// together with summary statistics (mean, std, min, max) in a single pass.
 ///
-/// The statistics are computed in a single pass over the upper triangle inside
-/// Rust, avoiding the O(N²) Python loop.
-pub fn cosine_similarity_matrix_stats(
-    embeddings: &Array2<f32>,
-    eps: f32,
-) -> (Array2<f32>, SimilarityStats) {
-    let matrix = cosine_similarity_matrix(embeddings, eps);
-    let n = matrix.nrows();
+/// Returns the flattened upper triangle in row-major order (exactly
+/// `n * (n - 1) / 2` values) instead of the full N x N matrix, so no
+/// O(N²) matrix ever crosses the Python FFI boundary. Use
+/// [`cosine_similarity_matrix`] when the full matrix is actually needed.
+pub fn pairwise_cosine_stats(embeddings: &Array2<f32>, eps: f32) -> (Vec<f32>, SimilarityStats) {
+    let gram = cosine_similarity_matrix(embeddings, eps);
+    let n = gram.nrows();
 
     if n <= 1 {
         return (
-            matrix,
+            Vec::new(),
             SimilarityStats {
                 mean: 0.0,
                 std: 0.0,
@@ -49,14 +48,15 @@ pub fn cosine_similarity_matrix_stats(
         );
     }
 
-    let mut count: usize = 0;
+    let mut triangle = Vec::with_capacity(n * (n - 1) / 2);
     let mut sum: f64 = 0.0;
-    let mut min_val = matrix[[0, 1]];
-    let mut max_val = matrix[[0, 1]];
+    let mut min_val = gram[[0, 1]];
+    let mut max_val = gram[[0, 1]];
 
     for i in 0..n {
         for j in (i + 1)..n {
-            let val = matrix[[i, j]];
+            let val = gram[[i, j]];
+            triangle.push(val);
             sum += val as f64;
             if val < min_val {
                 min_val = val;
@@ -64,23 +64,21 @@ pub fn cosine_similarity_matrix_stats(
             if val > max_val {
                 max_val = val;
             }
-            count += 1;
         }
     }
 
-    let mean = (sum / count as f64) as f32;
+    let count = triangle.len() as f64;
+    let mean = (sum / count) as f32;
 
     let mut var_sum: f64 = 0.0;
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let diff = matrix[[i, j]] as f64 - mean as f64;
-            var_sum += diff * diff;
-        }
+    for &val in &triangle {
+        let diff = val as f64 - mean as f64;
+        var_sum += diff * diff;
     }
-    let std = (var_sum / count as f64).sqrt() as f32;
+    let std = (var_sum / count).sqrt() as f32;
 
     (
-        matrix,
+        triangle,
         SimilarityStats {
             mean,
             std,
@@ -138,7 +136,7 @@ fn compute_ranks(x: &[f32]) -> Vec<f32> {
         while j < n && (indexed_x[j].1 - indexed_x[i].1).abs() < 1e-9 {
             j += 1;
         }
-        
+
         let count = (j - i) as f32;
         // Sum of ranks: if i=0, j=2, ranks are 1 and 2. Average is (1+2)/2 = 1.5
         let sum_ranks = ((i + 1 + j) as f32) * count / 2.0;

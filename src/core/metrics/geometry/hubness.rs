@@ -15,8 +15,11 @@ pub fn compute_hubness(
     let n_samples = embeddings.nrows();
     let n_features = embeddings.ncols();
 
-    if n_samples == 0 || k == 0 || k >= n_samples {
+    if n_samples == 0 {
         return Err(PreprocessingError::InvalidShape);
+    }
+    if k == 0 || k >= n_samples {
+        return Err(PreprocessingError::InvalidK { k, n_samples });
     }
 
     let hubness_counts: Vec<usize> = (0..n_samples)
@@ -40,8 +43,7 @@ pub fn compute_hubness(
             }
 
             distances.sort_unstable_by(|a, b| {
-                a.1.partial_cmp(&b.1)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
             });
 
             let k_neighbors: Vec<usize> = distances.iter().take(k).map(|&(idx, _)| idx).collect();

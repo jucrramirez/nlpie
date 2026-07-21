@@ -15,6 +15,19 @@ pub enum PreprocessingError {
     #[error("expected a 2D embedding matrix with consistent row lengths")]
     InvalidShape,
 
+    /// Returned when a neighbourhood size `k` is invalid for the dataset size.
+    ///
+    /// For k-NN metrics `k` must satisfy `1 <= k < n_samples`. Projection-quality
+    /// metrics additionally require `2*n_samples - 3*k - 1 > 0` so their
+    /// normalisation term stays positive.
+    #[error("invalid neighbourhood size k={k} for {n_samples} samples")]
+    InvalidK {
+        /// The requested neighbourhood size.
+        k: usize,
+        /// The number of samples in the dataset.
+        n_samples: usize,
+    },
+
     /// Returned when standardizing a column with zero standard deviation, preventing division by zero.
     #[error("cannot standardize column {column}: standard deviation is zero")]
     ZeroStdDev {
