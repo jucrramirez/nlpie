@@ -92,7 +92,7 @@ jobs:
         run: |
           echo "Looking for wheels..."
           ls -la target/wheels/
-          WHEEL=$(find target/wheels -name "*.whl" | head -1)
+          WHEEL=$(ls -S target/wheels/*.whl | head -1)
           if [ -z "$WHEEL" ]; then
             find . -name "*.whl"
             exit 1
