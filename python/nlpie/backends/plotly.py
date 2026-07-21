@@ -159,6 +159,320 @@ def _format_storytelling(story: StoryData) -> str:
     return "".join(parts)
 
 
+_SEVERITY_COLORS = {
+    "critical": "#d62728",
+    "warning": "#ff7f0e",
+    "info": "#2ca02c",
+}
+
+
+def _axis_layout_key(subplot_num: int, axis: str) -> str:
+    return axis if subplot_num == 1 else f"{axis}{subplot_num}"
+
+
+def _subplot_number(row: int, col: int, n_cols: int) -> int:
+    return (row - 1) * n_cols + col
+
+
+def _compute_subplot_num(specs, row: int, col: int) -> int:
+    num = 0
+    for r, spec_row in enumerate(specs, 1):
+        c = 1
+        for spec in spec_row:
+            if spec is None:
+                c += 1
+                continue
+            num += 1
+            if r == row and c == col:
+                return num
+            c += spec.get("colspan", 1)
+    raise ValueError(f"No subplot at row={row}, col={col}")
+
+
+def _get_subplot_domain(fig, subplot_num: int) -> tuple[tuple[float, float], tuple[float, float]]:
+    x_key = _axis_layout_key(subplot_num, "xaxis")
+    y_key = _axis_layout_key(subplot_num, "yaxis")
+    xdom = tuple(fig.layout[x_key].domain)
+    ydom = tuple(fig.layout[y_key].domain)
+    return xdom, ydom
+
+
+def _paper_position(
+    xdom: tuple[float, float],
+    ydom: tuple[float, float],
+    x_frac: float,
+    y_frac: float,
+) -> tuple[float, float]:
+    return (
+        xdom[0] + x_frac * (xdom[1] - xdom[0]),
+        ydom[0] + y_frac * (ydom[1] - ydom[0]),
+    )
+
+
+
+def _kpi_severity(metric: str, value: float, n_dims: int = 0) -> str:
+    if metric == "mean":
+        if value > 0.8: return _SEVERITY_COLORS["critical"]
+        if value > 0.5: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric == "std":
+        if value < 0.05: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric == "eff_rank":
+        if n_dims > 0 and value < n_dims * 0.3: return _SEVERITY_COLORS["critical"]
+        if n_dims > 0 and value < n_dims * 0.6: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric == "hubness":
+        if value > 1.0: return _SEVERITY_COLORS["critical"]
+        if value > 0.5: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric == "ari":
+        if value < 0.25: return _SEVERITY_COLORS["critical"]
+        if value < 0.5: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric == "silhouette":
+        if value < 0.1: return _SEVERITY_COLORS["critical"]
+        if value < 0.25: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric in ("trust", "cont"):
+        if value < 0.5: return _SEVERITY_COLORS["critical"]
+        if value < 0.8: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    if metric in ("recall", "ndcg"):
+        if value < 0.3: return _SEVERITY_COLORS["critical"]
+        if value < 0.7: return _SEVERITY_COLORS["warning"]
+        return _SEVERITY_COLORS["info"]
+    return "#999"
+
+
+def _kpi_cards_data(report) -> list[tuple[str, str, str]]:
+    n_dims = getattr(report, "n_dims", 0)
+    cards: list[tuple[str, str, str]] = []
+
+    m = getattr(report, "intrinsic", None)
+    if m is not None:
+        cards.append(("Mean", f"{m.mean:.3f}", _kpi_severity("mean", m.mean)))
+        cards.append(("Std", f"{m.std:.3f}", _kpi_severity("std", m.std)))
+
+    m = getattr(report, "geometry", None)
+    if m is not None:
+        cards.append(("Eff-Rank", f"{m.effective_rank:.1f}", _kpi_severity("eff_rank", m.effective_rank, n_dims)))
+        cards.append(("Hubness", f"{m.hubness_skewness:.2f}", _kpi_severity("hubness", m.hubness_skewness)))
+
+    m = getattr(report, "clustering", None)
+    if m is not None:
+        cards.append(("ARI", f"{m.ari:.3f}", _kpi_severity("ari", m.ari)))
+        cards.append(("Silhouette", f"{m.silhouette:.3f}", _kpi_severity("silhouette", m.silhouette)))
+
+    if getattr(report, "projection", None):
+        p = report.projection
+        avg_t = sum(x.trustworthiness for x in p) / len(p)
+        avg_c = sum(x.continuity for x in p) / len(p)
+        cards.append(("Trust", f"{avg_t:.3f}", _kpi_severity("trust", avg_t)))
+        cards.append(("Cont", f"{avg_c:.3f}", _kpi_severity("cont", avg_c)))
+
+    if getattr(report, "retrieval", None):
+        r = report.retrieval
+        avg_rec = sum(x.recall for x in r) / len(r)
+        avg_ndcg = sum(x.ndcg for x in r) / len(r)
+        cards.append(("Recall", f"{avg_rec:.3f}", _kpi_severity("recall", avg_rec)))
+        cards.append(("NDCG", f"{avg_ndcg:.3f}", _kpi_severity("ndcg", avg_ndcg)))
+
+    return cards
+
+
+def _build_kpi_figure(go, report) -> object:
+    cards = _kpi_cards_data(report)
+    fig = go.Figure()
+
+    if cards:
+        n = len(cards)
+        cw = 0.88 / n
+        margin_x = 0.06
+        label_size = 11 if n <= 6 else 9
+        value_size = 22 if n <= 6 else 16
+
+        for i, (label, value, color) in enumerate(cards):
+            cx = margin_x + cw * (i + 0.5)
+            left = cx - cw * 0.42
+
+            fig.add_shape(
+                type="rect",
+                xref="paper", yref="paper",
+                x0=left, y0=0.15, x1=left + 0.005, y1=0.78,
+                fillcolor=color,
+                line=dict(width=0),
+            )
+            fig.add_annotation(
+                text=label,
+                xref="paper", yref="paper",
+                x=cx, y=0.70,
+                xanchor="center", yanchor="middle",
+                showarrow=False,
+                font=dict(size=label_size, color="#888"),
+            )
+            fig.add_annotation(
+                text=value,
+                xref="paper", yref="paper",
+                x=cx, y=0.40,
+                xanchor="center", yanchor="middle",
+                showarrow=False,
+                font=dict(size=value_size, color="#1a1a2e", family="Arial Black, sans-serif"),
+            )
+
+    model_name = getattr(report, "model_name", "unnamed")
+    n_samples = getattr(report, "n_samples", 0)
+    n_dims = getattr(report, "n_dims", 0)
+
+    fig.update_layout(
+        title=dict(
+            text=(
+                "<b>Key Performance Indicators</b><br>"
+                f"<span style='font-size:11px;color:#555'>{model_name} — {n_samples:,} samples · {n_dims:,} dimensions</span>"
+            ),
+            x=0.5, xanchor="center",
+        ),
+        height=170,
+        margin=dict(t=48, b=5, l=10, r=10),
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+    )
+    return fig
+
+
+def _format_storytelling(explanations) -> str:
+    if not explanations:
+        return '<span style="color:#2ca02c;font-size:12px;font-weight:bold">\u2713 All metrics look healthy \u2014 no issues detected.</span>'
+
+    n_crit = sum(1 for e in explanations if e.severity == "critical")
+    n_warn = sum(1 for e in explanations if e.severity == "warning")
+    n_info = sum(1 for e in explanations if e.severity == "info")
+
+    counts = ", ".join(
+        s for s in [
+            f"{n_crit} critical" if n_crit else "",
+            f"{n_warn} warning" if n_warn else "",
+            f"{n_info} info" if n_info else "",
+        ] if s
+    )
+
+    parts = [
+        '<span style="font-size:13px;font-weight:bold;color:#333">Assessment Summary</span><br>'
+        f'<span style="font-size:11px;color:#555">Detected {counts} issue(s) in the embedding space.</span>'
+    ]
+
+    for severity, header in [
+        ("critical", "Critical Issues"),
+        ("warning", "Warnings"),
+        ("info", "Info"),
+    ]:
+        items = [e for e in explanations if e.severity == severity]
+        if not items:
+            continue
+        color = _SEVERITY_COLORS[severity]
+        parts.append(
+            f'<br><br><span style="font-size:12px;font-weight:bold;color:{color}">\u26a0 {header}</span>'
+        )
+        for exp in items:
+            parts.append(
+                f'<br><span style="font-size:11px;color:#333"><b>{exp.metric}</b>: {exp.summary}</span>'
+            )
+            if exp.recommendation:
+                parts.append(
+                    '<br><span style="font-size:10px;color:#555;padding-left:14px;display:inline-block">'
+                    f'\u2192 {exp.recommendation}</span>'
+                )
+
+    recs = [e.recommendation for e in explanations if e.recommendation]
+    if recs:
+        parts.append(
+            '<br><br><span style="font-size:12px;font-weight:bold;color:#333">Recommended Actions</span><br>'
+        )
+        for i, rec in enumerate(recs, 1):
+            parts.append(
+                f'<span style="font-size:10px;color:#444">{i}. {rec}</span><br>'
+            )
+
+    return "".join(parts)
+
+
+def _copy_traces(fig, source_fig, row: int, col: int) -> None:
+    for trace in source_fig.data:
+        fig.add_trace(trace, row=row, col=col)
+
+
+def _hide_axes(fig, row: int, col: int) -> None:
+    fig.update_xaxes(visible=False, showgrid=False, zeroline=False, row=row, col=col)
+    fig.update_yaxes(visible=False, showgrid=False, zeroline=False, row=row, col=col)
+
+
+def _add_domain_text(
+    fig,
+    subplot_num: int,
+    text: str,
+    *,
+    x_frac: float = 0.03,
+    y_frac: float = 0.78,
+    font_size: int = 11,
+) -> None:
+    xdom, ydom = _get_subplot_domain(fig, subplot_num)
+    x, y = _paper_position(xdom, ydom, x_frac, y_frac)
+    fig.add_annotation(
+        text=text,
+        xref="paper",
+        yref="paper",
+        x=x,
+        y=y,
+        xanchor="left",
+        yanchor="top",
+        showarrow=False,
+        font=dict(size=font_size),
+        align="left",
+    )
+
+
+def _add_domain_caption(
+    fig,
+    subplot_num: int,
+    text: str,
+) -> None:
+    xdom, ydom = _get_subplot_domain(fig, subplot_num)
+    x, y = _paper_position(xdom, ydom, 0.04, 0.10)
+    fig.add_annotation(
+        text=f"<span style='color:#666;font-size:10px'>{text}</span>",
+        xref="paper",
+        yref="paper",
+        x=x,
+        y=y,
+        xanchor="left",
+        yanchor="bottom",
+        showarrow=False,
+        align="left",
+    )
+
+
+def _estimate_dashboard_height(
+    n_charts: int,
+    include_interp: bool,
+    explanation_count: int,
+) -> int:
+    kpi_px = 80
+    chart_px = 280 * max(1, (n_charts + 1) // 2) if n_charts > 0 else 0
+    interp_px = (120 + explanation_count * 60) if include_interp else 0
+    total_px = 120 + kpi_px + chart_px + interp_px
+    return max(total_px, 600)
+
+
+_CHART_CAPTIONS = {
+    "Pairwise Cosine Similarity": "Peak near 1.0 = redundant vectors; wide spread = diverse space",
+    "Hubness Distribution": "Right-skewed = a few points dominate neighbour lists",
+    "Projection Quality": "Scores near 1.0 mean the projection preserves local structure",
+    "Retrieval Quality": "Higher curves = better nearest-neighbour retrieval",
+}
+
+
 class PlotlyBackend(PlotBackend):
     def __init__(self) -> None:
         try:
