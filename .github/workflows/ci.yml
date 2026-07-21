@@ -88,7 +88,11 @@ jobs:
         run: uv run maturin build --release
       - name: Verify type stubs are packaged
         run: |
-          WHEEL=$(ls target/wheels/*.whl | head -1)
+          WHEEL=$(find target/wheels -name "*.whl" 2>/dev/null | head -1)
+          if [ -z "$WHEEL" ]; then
+            ls -la target/wheels/ 2>/dev/null || echo "target/wheels/ does not exist"
+            exit 1
+          fi
           unzip -l "$WHEEL" | grep -q "nlpie/_nlpie_core.pyi"
           unzip -l "$WHEEL" | grep -q "nlpie/py.typed"
       - name: Validate PEP 517 install (same path as `pip install git+...`)
