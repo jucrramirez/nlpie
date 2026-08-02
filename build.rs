@@ -8,11 +8,15 @@ fn main() {
             // Apple Accelerate framework provides BLAS/LAPACK.
             println!("cargo:rustc-link-lib=framework=Accelerate");
         }
-        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+        #[cfg(target_os = "linux")]
         {
             // System OpenBLAS (install: sudo apt-get install libopenblas-dev gfortran).
             // If unavailable, rebuild with `--features openblas-static` instead.
+            #[cfg(target_arch = "x86_64")]
             println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu");
+            #[cfg(target_arch = "aarch64")]
+            println!("cargo:rustc-link-search=/usr/lib/aarch64-linux-gnu");
+
             println!("cargo:rustc-link-lib=dylib=openblas");
             println!("cargo:rustc-link-lib=dylib=gfortran");
         }
@@ -23,11 +27,5 @@ fn main() {
                  build with `--features openblas-static`"
             );
         }
-    }
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    {
-        println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu");
-        println!("cargo:rustc-link-lib=dylib=openblas");
-        println!("cargo:rustc-link-lib=dylib=gfortran");
     }
 }

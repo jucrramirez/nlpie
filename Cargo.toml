@@ -13,7 +13,7 @@ extension-module = ["dep:pyo3", "pyo3/extension-module", "dep:numpy"]
 # statically, so no system-level BLAS installation is required. Use when the
 # default system linkage fails (e.g. Windows, or Linux without libopenblas-dev).
 # Requires a C/Fortran toolchain; the first build is slow.
-openblas-static = ["ndarray-linalg/openblas-static"]
+openblas-static = ["ndarray-linalg/openblas-static", "dep:openblas-src"]
 
 [dependencies]
 pyo3 = { version = "0.28.3", optional = true }
@@ -22,3 +22,4 @@ ndarray-linalg = "0.18.1"
 numpy = { version = "0.28", optional = true }
 rayon = "1.10"
 thiserror = "2.0.18"
+openblas-src = { version = "0.10.16", optional = true, default-features = false }
