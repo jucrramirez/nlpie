@@ -71,7 +71,7 @@ jobs:
         run: uv run pytest tests/ -v
       - name: Run Rust tests
         run: cargo test
- 
+
   wheel:
     runs-on: ubuntu-latest
     steps:
