@@ -84,8 +84,21 @@ from ._api import (
 )
 from ._errors import NlpieError as NlpieError
 from ._errors import PreprocessingError as PreprocessingError
+from .backends import Dashboard as Dashboard
 from .backends import PlotBackend as PlotBackend
 from .backends import PlotlyBackend as PlotlyBackend
+from .dashboard import (
+    DashboardBuilder as DashboardBuilder,
+)
+from .dashboard import (
+    compare_and_plot_delta as compare_and_plot_delta,
+)
+from .dashboard import (
+    compare_and_plot_grouped_bar as compare_and_plot_grouped_bar,
+)
+from .dashboard import (
+    compare_and_plot_radar as compare_and_plot_radar,
+)
 from .dashboard import (
     plot_hubness_histogram as plot_hubness_histogram,
 )
@@ -104,6 +117,22 @@ from .dashboard import (
 from .dashboard import (
     plot_similarity_to_mean as plot_similarity_to_mean,
 )
+from .export import HtmlExporter as HtmlExporter
+from .export import JsonExporter as JsonExporter
+from .export import MarkdownExporter as MarkdownExporter
+from .export import ReportExporter as ReportExporter
+from .interpret import Explanation as Explanation
+from .interpret import ExplanationProvider as ExplanationProvider
+from .interpret import ExplanationRegistry as ExplanationRegistry
 from .interpret import HubInfo as HubInfo
 from .interpret import HubnessExplanation as HubnessExplanation
+from .interpret import InterpretationReport as InterpretationReport
 from .interpret import explain_hubness as explain_hubness
+from .metrics import ClusteringMetrics as ClusteringMetrics
+from .metrics import EmbeddingQualityReport as EmbeddingQualityReport
+from .metrics import GeometryMetrics as GeometryMetrics
+from .metrics import IntrinsicMetrics as IntrinsicMetrics
+from .metrics import ProjectionMetrics as ProjectionMetrics
+from .metrics import RetrievalMetrics as RetrievalMetrics
+from .metrics import compare_models as compare_models
+from .metrics import evaluate_embedding_quality as evaluate_embedding_quality
