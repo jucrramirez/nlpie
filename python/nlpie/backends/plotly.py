@@ -19,6 +19,16 @@ _CHART_CAPTIONS = {
 _MAX_HEATMAP_SIZE = 300
 
 
+def _apply_light_theme(fig) -> None:
+    """Keep dashboard figures readable when the notebook uses a dark theme."""
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        font=dict(color="#1f2937"),
+    )
+
+
 def _add_caption(fig, caption: str, y_pos: float = -0.18) -> None:
     """Attach a small explanatory caption below a figure."""
     if not caption:
@@ -491,6 +501,7 @@ class PlotlyBackend(PlotBackend):
                 x=list(range(1, len(ev) + 1)),
                 y=ev,
                 name="Eigenvalue",
+                marker_color="#4c78a8",
             )
         )
         if cumulative:
@@ -504,14 +515,32 @@ class PlotlyBackend(PlotBackend):
                 )
             )
         fig.update_layout(
+            template="plotly_white",
             title="Eigenvalue Scree Plot",
             xaxis_title="Component",
             yaxis_title="Eigenvalue",
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#ffffff",
+            font=dict(color="#1f2937"),
+            xaxis=dict(
+                showgrid=False,
+                linecolor="#9ca3af",
+                tickcolor="#9ca3af",
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor="#e5e7eb",
+                linecolor="#9ca3af",
+                tickcolor="#9ca3af",
+            ),
             yaxis2=dict(
                 title="Cumulative variance ratio",
                 overlaying="y",
                 side="right",
                 range=[0, 1],
+                showgrid=False,
+                linecolor="#9ca3af",
+                tickcolor="#9ca3af",
             ),
         )
         return fig
@@ -782,5 +811,11 @@ class PlotlyBackend(PlotBackend):
             if interpretation is not None
             else None
         )
+
+        _apply_light_theme(fig_kpi)
+        for _, fig in chart_list:
+            _apply_light_theme(fig)
+        if fig_storytelling is not None:
+            _apply_light_theme(fig_storytelling)
 
         return Dashboard(kpi=fig_kpi, charts=chart_list, story=fig_storytelling)

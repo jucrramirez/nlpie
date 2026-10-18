@@ -1,0 +1,62 @@
+{
+  "model_name": "Model B (Finetuned)",
+  "n_samples": 300,
+  "n_dims": 64,
+  "intrinsic": {
+    "mean": -0.0023387728724628687,
+    "std": 0.49014219641685486,
+    "min": -0.5281211137771606,
+    "max": 0.9743958711624146
+  },
+  "clustering": {
+    "ari": null,
+    "nmi": null,
+    "purity": null,
+    "silhouette": 0.9425293207168579,
+    "davies_bouldin": 0.056002020835876465
+  },
+  "geometry": {
+    "effective_rank": 5.522657871246338,
+    "mean_similarity": 0.031660022615493895,
+    "hubness_skewness": 1.8136566877365112,
+    "hubness_k": 5
+  },
+  "projection": [
+    {
+      "k": 5,
+      "trustworthiness": 0.8968995213508606,
+      "continuity": 0.9096598029136658
+    },
+    {
+      "k": 10,
+      "trustworthiness": 0.9077703356742859,
+      "continuity": 0.9194223880767822
+    }
+  ],
+  "retrieval": [
+    {
+      "k": 1,
+      "recall": 0.0,
+      "precision": 0.0,
+      "mrr": 0.0,
+      "ndcg": 0.0,
+      "coverage": 0.0
+    },
+    {
+      "k": 3,
+      "recall": 0.0,
+      "precision": 0.0,
+      "mrr": 0.0,
+      "ndcg": 0.0,
+      "coverage": 0.0
+    },
+    {
+      "k": 5,
+      "recall": 0.05,
+      "precision": 0.02,
+      "mrr": 0.025,
+      "ndcg": 0.026406812257259087,
+      "coverage": 0.05
+    }
+  ]
+}
