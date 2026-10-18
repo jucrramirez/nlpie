@@ -51,7 +51,7 @@ def build_story(explanations: Sequence[Explanation]) -> StoryData:
     n_warn = counts[WARNING]
     n_info = counts[INFO]
 
-    if not explanations:
+    if not explanations or (n_crit == 0 and n_warn == 0):
         headline = _HEALTHY_HEADLINE
         headline_severity = OK
     else:
@@ -74,7 +74,11 @@ def build_story(explanations: Sequence[Explanation]) -> StoryData:
         if counts[severity] > 0
     ]
 
-    recommendations = [e.recommendation for e in explanations if e.recommendation]
+    recommendations = [
+        e.recommendation
+        for e in explanations
+        if e.recommendation and e.recommendation.strip().lower().rstrip(".") != "no action required"
+    ]
 
     return StoryData(
         headline=headline,

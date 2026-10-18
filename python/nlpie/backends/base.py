@@ -105,6 +105,19 @@ class PlotBackend(ABC):
         ndcg: Sequence[float],
     ) -> object: ...
 
+    def retrieval_metrics_curve_extended(
+        self,
+        k_values: Sequence[int],
+        recall: Sequence[float],
+        precision: Sequence[float],
+        ndcg: Sequence[float],
+        mrr: Sequence[float] | None = None,
+        coverage: Sequence[float] | None = None,
+    ) -> object:
+        """Render extended retrieval metrics without breaking old backends."""
+        del mrr, coverage
+        return self.retrieval_metrics_curve(k_values, recall, precision, ndcg)
+
     # --- Model comparison ------------------------------------------------------
 
     @abstractmethod

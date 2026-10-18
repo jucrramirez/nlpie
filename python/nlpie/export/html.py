@@ -1,246 +1,472 @@
+# ruff: noqa: E501
+
 from __future__ import annotations
 
+import json
+import math
 from html import escape
+from typing import Any, cast
 
-from .._kpi import kpi_cards_data
-from ..interpret.story import StoryData, build_story
+from ..thresholds import (
+    EFFECTIVE_RANK_CRITICAL_FRAC,
+    EFFECTIVE_RANK_WARNING_FRAC,
+    HUBNESS_CRITICAL,
+    HUBNESS_WARNING,
+    PROJECTION_CRITICAL,
+    PROJECTION_WARNING,
+    RETRIEVAL_CRITICAL,
+    RETRIEVAL_WARNING,
+)
 from .base import ReportExporter
+from .presentation import MetricView, ReportPresentation, build_presentation
+
+_CHART_JS = "https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"
 
 _CSS = """
 <style>
-* { box-sizing:border-box; margin:0; padding:0 }
-body {
-  background:#f0f2f5;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  color:#1a1a2e;
+:root {
+  color-scheme: light;
+  --bg: #f4f7f5; --surface: #ffffff; --surface-soft: #edf3ef;
+  --text: #182019; --muted: #68736b; --border: #d9e2db;
+  --primary: #206b50; --primary-soft: #dceee5; --critical: #b43f48;
+  --critical-soft: #f8e5e7; --warning: #ad6b18; --warning-soft: #fff1d9;
+  --healthy: #2d8154; --healthy-soft: #e2f2e7; --space: clamp(1rem, 2vw, 1.5rem);
 }
-.dash-wrap { max-width:1400px; margin:0 auto; padding:24px }
-
-.dash-section {
-  background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08);
-  margin-bottom:24px; overflow:hidden;
-}
-.dash-section-header {
-  padding:16px 20px 0 20px; font-size:15px; font-weight:600; color:#1a1a2e;
-  display:flex; align-items:center; gap:8px;
-}
-.dash-section-header .sub { font-size:11px; font-weight:400; color:#888 }
-
-/* KPI cards */
-.kpi-grid {
-  display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));
-  gap:12px; padding:16px 20px 20px;
-}
-.kpi-card {
-  background:#fff; border-radius:10px; padding:14px 12px; position:relative;
-  overflow:hidden; box-shadow:0 0 0 1px rgba(0,0,0,0.06); transition:box-shadow .15s;
-}
-.kpi-card:hover { box-shadow:0 2px 12px rgba(0,0,0,0.10) }
-.kpi-card .bar {
-  position:absolute; left:0; top:4px; bottom:4px; width:4px; border-radius:0 3px 3px 0;
-}
-.kpi-card .bar.critical { background:#d62728 }
-.kpi-card .bar.warning  { background:#ff7f0e }
-.kpi-card .bar.info     { background:#2ca02c }
-.kpi-card .label {
-  font-size:11px; color:#888; text-transform:uppercase;
-  letter-spacing:.04em; margin-bottom:4px;
-}
-.kpi-card .value { font-size:24px; font-weight:700; color:#1a1a2e }
-
-/* Storytelling */
-.story-body { padding:12px 20px 20px }
-.story-body p { font-size:12px; line-height:1.6; margin-bottom:6px }
-.story-summary {
-  border-radius:8px; padding:10px 14px; margin-bottom:14px;
-  font-size:13px; font-weight:500;
-}
-.story-summary.critical { border-left:4px solid #d62728; background:#fef6f6; color:#b01a1a }
-.story-summary.warning  { border-left:4px solid #ff7f0e; background:#fffaf2; color:#b85c00 }
-.story-summary.info     { border-left:4px solid #1f77b4; background:#f4f8fc; color:#1a5276 }
-.story-summary.ok       { border-left:4px solid #2ca02c; background:#f6fcf6; color:#2d6e2d }
-.severity-badge {
-  display:inline-block; padding:2px 10px; border-radius:10px; font-size:10px;
-  font-weight:600; text-transform:uppercase; letter-spacing:.03em;
-}
-.severity-badge.critical { background:#d62728; color:#fff }
-.severity-badge.warning  { background:#ff7f0e; color:#fff }
-.severity-badge.info     { background:#1f77b4; color:#fff }
-.story-group { margin-bottom:10px }
-.story-group-header {
-  font-size:12px; font-weight:600; margin-bottom:6px;
-  display:flex; align-items:center; gap:6px;
-}
-.story-item { padding:6px 0 6px 12px; border-left:2px solid #e0e0e0; margin-bottom:4px }
-.story-item.critical { border-left-color:#d62728 }
-.story-item.warning  { border-left-color:#ff7f0e }
-.story-item.info     { border-left-color:#1f77b4 }
-.story-item .metric { font-weight:500; font-size:12px }
-.story-item .summary { color:#555; font-size:11px; margin-top:1px }
-.story-item .detail { color:#666; font-size:11px; margin-top:2px; line-height:1.5 }
-.story-item .rec {
-  color:#777; font-size:11px; margin-top:2px; padding-left:14px; display:inline-block;
-}
-.rec-list { margin-top:10px; padding:10px 14px; background:#fafafa; border-radius:8px }
-.rec-list strong { font-size:12px }
-.rec-list ol { margin-top:4px; padding-left:18px }
-.rec-list li { margin-bottom:3px; font-size:11px; color:#444 }
-
-/* Chart grid */
-.chart-grid {
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(480px, 1fr));
-  gap:24px; padding:16px 20px 20px;
-}
-.chart-grid .js-plotly-plot, .chart-grid .plotly-graph-div { width:100% !important }
-@media (max-width:900px) { .chart-grid { grid-template-columns:1fr } }
+:root[data-theme="dark"] { color-scheme: dark; --bg:#111613; --surface:#18211b; --surface-soft:#202c24;
+  --text:#edf2ee; --muted:#aab7ad; --border:#304036; --primary:#7ed6ad; --primary-soft:#173d2e;
+  --critical:#ff8d98; --critical-soft:#4c242b; --warning:#f6bb63; --warning-soft:#493317;
+  --healthy:#83d8a5; --healthy-soft:#1b402a; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { margin: 0; min-width: 0; background: var(--bg); color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5; }
+a { color: var(--primary); }
+button { font: inherit; }
+.skip-link { position:absolute; left:-999px; top:auto; }
+.skip-link:focus { left:1rem; top:1rem; z-index:10; background:var(--surface); padding:.6rem 1rem; border-radius:.5rem; }
+.shell { width: min(100% - 2 * var(--space), 1180px); margin-inline:auto; min-width:0; }
+.topbar { position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--surface) 94%, transparent);
+  border-bottom:1px solid var(--border); backdrop-filter: blur(12px); }
+.topbar-inner { min-height:3.5rem; display:flex; gap:1rem; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.brand { font-weight:800; letter-spacing:-.02em; }
+.topbar-actions { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
+.topbar-actions a, .theme-toggle { border:1px solid var(--border); background:var(--surface); color:var(--text);
+  border-radius:999px; padding:.35rem .75rem; text-decoration:none; font-size:.85rem; cursor:pointer; }
+.report-header { padding:clamp(2.5rem, 7vw, 6rem) 0 2rem; }
+.hero-grid, .decision-grid, .two-col, .metric-grid, .kpi-grid { display:grid; gap:var(--space); min-width:0; }
+.hero-grid { grid-template-columns:minmax(0, 1fr); align-items:start; }
+.eyebrow, .section-kicker { color:var(--primary); text-transform:uppercase; letter-spacing:.1em; font-size:.75rem; font-weight:800; }
+h1, h2, h3, p { margin-top:0; }
+h1 { margin-bottom:.8rem; max-width:18ch; font-size:clamp(2.1rem, 6vw, 4.4rem); line-height:1.02; letter-spacing:-.055em; }
+h2 { font-size:clamp(1.45rem, 3vw, 2.15rem); letter-spacing:-.03em; margin-bottom:.45rem; }
+h3 { font-size:1.05rem; margin-bottom:.35rem; }
+.lead { max-width:68ch; color:var(--muted); font-size:clamp(1rem, 1.6vw, 1.2rem); }
+.chips { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1.25rem; }
+.chip, .status { border-radius:999px; padding:.35rem .7rem; font-size:.78rem; font-weight:750; background:var(--surface-soft); }
+.card { min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:1rem; box-shadow:0 8px 24px rgba(26,52,35,.05); }
+.decision { padding:var(--space); }
+.decision.critical { border-color:color-mix(in srgb, var(--critical) 45%, var(--border)); }
+.decision.warning { border-color:color-mix(in srgb, var(--warning) 45%, var(--border)); }
+.decision.healthy { border-color:color-mix(in srgb, var(--healthy) 45%, var(--border)); }
+.decision-title { font-size:1.35rem; font-weight:800; margin:.45rem 0 .75rem; }
+.decision ul, .simple-list { margin:.5rem 0 0; padding-left:1.2rem; }
+.decision li, .simple-list li { margin:.45rem 0; color:var(--muted); }
+.section { padding:1.5rem 0; }
+.section-head { display:flex; justify-content:space-between; gap:1rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem; }
+.section-note { max-width:62ch; color:var(--muted); margin:0; }
+.kpi-grid { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+.kpi { padding:1rem; }
+.kpi .label { color:var(--muted); font-size:.78rem; font-weight:750; text-transform:uppercase; letter-spacing:.06em; }
+.kpi .value { display:block; font-size:clamp(1.5rem, 3vw, 2.4rem); line-height:1.1; font-weight:850; margin:.35rem 0; }
+.kpi .detail { color:var(--muted); font-size:.85rem; }
+.critical, .status.critical { color:var(--critical); }
+.warning, .status.warning { color:var(--warning); }
+.healthy, .status.info { color:var(--healthy); }
+.status { display:inline-block; background:var(--surface-soft); }
+.status.critical { background:var(--critical-soft); } .status.warning { background:var(--warning-soft); }
+.status.info { background:var(--healthy-soft); } .status.unavailable { color:var(--muted); }
+.chart-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:var(--space); min-width:0; }
+.chart-card { padding:var(--space); min-width:0; }
+.chart-card.wide { grid-column:1 / -1; }
+.chart-wrap { position:relative; width:100%; min-width:0; height:clamp(250px, 35vw, 360px); }
+.chart-wrap.tall { height:clamp(280px, 42vw, 430px); }
+.chart-wrap canvas { display:block; width:100% !important; height:100% !important; max-width:100%; }
+.empty-state { min-height:clamp(150px, 20vw, 230px); display:grid; place-items:center; text-align:center; color:var(--muted); background:var(--surface-soft); border-radius:.7rem; padding:1rem; }
+.narrative-grid, .steps-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--space); }
+.narrative, .step, .table-card { padding:var(--space); min-width:0; }
+.step-number { color:var(--primary); font-size:1.5rem; font-weight:850; }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width:680px; }
+th, td { padding:.7rem .65rem; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+th { color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; }
+td { font-size:.88rem; }
+td.explanation { color:var(--muted); max-width:35ch; }
+details { padding:1rem var(--space); }
+summary { cursor:pointer; font-weight:800; }
+.footer { color:var(--muted); font-size:.82rem; padding:2rem 0 3rem; }
+@media (max-width:900px) { .hero-grid, .kpi-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .hero-grid { grid-template-columns:1fr; } }
+@media (max-width:680px) { .shell { width:min(100% - 1.25rem, 1180px); } .chart-grid, .narrative-grid, .steps-grid, .kpi-grid { grid-template-columns:1fr; }
+  .chart-card.wide { grid-column:auto; } h1 { max-width:none; } .topbar-inner { padding:.6rem 0; } }
 </style>
 """
 
 
-def _build_kpi_html(report) -> str:
-    cards = kpi_cards_data(report)
-    if not cards:
-        return ""
-    parts = ['<div class="kpi-grid">']
-    for card in cards:
-        parts.append(
-            f'<div class="kpi-card">'
-            f'<div class="bar {escape(card.severity)}"></div>'
-            f'<div class="label">{escape(card.label)}</div>'
-            f'<div class="value">{escape(card.value)}</div>'
-            f"</div>"
-        )
-    parts.append("</div>")
-    return "\n".join(parts)
+def _json_default(value: Any) -> Any:
+    item = getattr(value, "item", None)
+    if callable(item):
+        return item()
+    raise TypeError(f"Cannot serialize {type(value).__name__}")
 
 
-def _build_story_html(story: StoryData) -> str:
-    if story.is_healthy:
-        return (
-            '<div class="story-body">'
-            f'<div class="story-summary ok">{escape(story.headline)}</div>'
-            "</div>"
-        )
-
-    parts = ['<div class="story-body">']
-    parts.append(
-        f'<div class="story-summary {escape(story.headline_severity)}">'
-        f"{escape(story.headline)}</div>"
+def _safe_json(value: Any) -> str:
+    return (
+        json.dumps(value, default=_json_default, separators=(",", ":"))
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
     )
 
-    group_headers = {
-        "critical": "Critical Issues",
-        "warning": "Warnings",
-        "info": "Info",
-    }
-    for group in story.groups:
-        severity = group.severity
-        parts.append('<div class="story-group">')
-        parts.append(
-            f'<div class="story-group-header">'
-            f'<span class="severity-badge {escape(severity)}">{escape(severity)}</span>'
-            f"{group_headers.get(severity, severity)}</div>"
+
+def _histogram(values: list[float], bins: int = 16) -> dict[str, list[Any]]:
+    if not values:
+        return {"labels": [], "values": []}
+    low, high = min(values), max(values)
+    if math.isclose(low, high):
+        return {"labels": [f"{low:.2f}"], "values": [len(values)]}
+    width = (high - low) / bins
+    counts = [0] * bins
+    for value in values:
+        index = min(bins - 1, int((value - low) / width))
+        counts[index] += 1
+    labels = [f"{low + index * width:.2f}" for index in range(bins)]
+    return {"labels": labels, "values": counts}
+
+
+def _chart_data(report) -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    retrieval = getattr(report, "retrieval", None) or []
+    if retrieval:
+        data["retrieval"] = {
+            "labels": [f"K={item.k}" for item in retrieval],
+            "datasets": [
+                {"label": "Recall", "data": [item.recall * 100 for item in retrieval]},
+                {"label": "Precision", "data": [item.precision * 100 for item in retrieval]},
+                {"label": "MRR", "data": [item.mrr * 100 for item in retrieval]},
+                {"label": "nDCG", "data": [item.ndcg * 100 for item in retrieval]},
+                {"label": "Coverage", "data": [item.coverage * 100 for item in retrieval]},
+            ],
+            "thresholds": {
+                "warning": RETRIEVAL_WARNING * 100,
+                "critical": RETRIEVAL_CRITICAL * 100,
+            },
+            "threshold_unit": "%",
+        }
+    projection = getattr(report, "projection", None) or []
+    if projection:
+        data["projection"] = {
+            "labels": [f"K={item.k}" for item in projection],
+            "datasets": [
+                {
+                    "label": "Trustworthiness",
+                    "data": [item.trustworthiness * 100 for item in projection],
+                },
+                {"label": "Continuity", "data": [item.continuity * 100 for item in projection]},
+            ],
+            "thresholds": {
+                "warning": PROJECTION_WARNING * 100,
+                "critical": PROJECTION_CRITICAL * 100,
+            },
+            "threshold_unit": "%",
+        }
+    geometry = getattr(report, "geometry", None)
+    if geometry is not None:
+        data["rank"] = {
+            "labels": ["Effective rank", "Ambient dimensions"],
+            "values": [geometry.effective_rank, report.n_dims],
+            "thresholds": {
+                "warning": report.n_dims * EFFECTIVE_RANK_WARNING_FRAC,
+                "critical": report.n_dims * EFFECTIVE_RANK_CRITICAL_FRAC,
+            },
+        }
+        data["hubness"] = {
+            "labels": ["Observed skewness"],
+            "values": [geometry.hubness_skewness],
+            "thresholds": {"warning": HUBNESS_WARNING, "critical": HUBNESS_CRITICAL},
+        }
+    pairwise = getattr(report, "pairwise_similarities", None) or []
+    if pairwise:
+        data["similarity"] = _histogram([float(value) for value in pairwise])
+    return data
+
+
+def _metric_by_prefix(presentation: ReportPresentation, prefix: str) -> MetricView | None:
+    return next(
+        (
+            metric
+            for metric in presentation.metric_interpretation
+            if metric.metric.startswith(prefix)
+        ),
+        None,
+    )
+
+
+def _metric_card(label: str, metric: MetricView | None, fallback: str) -> str:
+    if metric is None:
+        value, detail, status = "Not measured", fallback, "unavailable"
+    else:
+        value, detail, status = metric.formatted, metric.ideal, metric.status
+    return (
+        f'<article class="card kpi"><span class="label">{escape(label)}</span>'
+        f'<strong class="value">{escape(value)}</strong>'
+        f'<span class="status {escape(status)}">{escape(status.title())}</span>'
+        f'<div class="detail">{escape(detail)}</div></article>'
+    )
+
+
+def _canvas_card(title: str, note: str, chart_id: str, wide: bool = False) -> str:
+    return (
+        f'<article class="card chart-card{" wide" if wide else ""}">'
+        f'<h3>{escape(title)}</h3><p class="section-note">{escape(note)}</p>'
+        f'<div class="chart-wrap"><canvas id="{escape(chart_id)}" role="img" aria-label="{escape(title)}"></canvas></div></article>'
+    )
+
+
+def _empty_card(title: str, reason: str) -> str:
+    return f'<article class="card chart-card"><h3>{escape(title)}</h3><div class="empty-state"><span><strong>Not measured</strong><br>{escape(reason)}</span></div></article>'
+
+
+def _build_html(report, presentation: ReportPresentation) -> str:
+    model = escape(str(getattr(report, "model_name", "unnamed")))
+    status = escape(presentation.status)
+    metrics = presentation.metric_interpretation
+    recall_candidates = [
+        m for m in metrics if m.metric.startswith("retrieval.recall") and m.value is not None
+    ]
+    best_recall = (
+        max(recall_candidates, key=lambda m: cast(float, m.value)) if recall_candidates else None
+    )
+    rows = []
+    for metric in metrics:
+        rows.append(
+            f"<tr><td><strong>{escape(metric.metric)}</strong><br><small>{escape(metric.family)}</small></td>"
+            f'<td>{escape(metric.formatted)}</td><td><span class="status {escape(metric.status)}">{escape(metric.status.title())}</span></td>'
+            f'<td>{escape(metric.ideal)}</td><td>{escape(metric.reference)}</td><td class="explanation">{escape(metric.explanation)}</td></tr>'
         )
-        for exp in group.explanations:
-            parts.append(f'<div class="story-item {escape(severity)}">')
-            parts.append(f'<div class="metric">{escape(exp.metric)}</div>')
-            parts.append(f'<div class="summary">{escape(exp.summary)}</div>')
-            detail = getattr(exp, "detail", "") or ""
-            if detail:
-                parts.append(f'<div class="detail">{escape(detail)}</div>')
-            rec = getattr(exp, "recommendation", "") or ""
-            if rec:
-                parts.append(f'<div class="rec">→ {escape(rec)}</div>')
-            parts.append("</div>")
-        parts.append("</div>")
-
-    if story.recommendations:
-        parts.append('<div class="rec-list"><strong>Recommended Actions</strong><ol>')
-        for rec in story.recommendations:
-            parts.append(f"<li>{escape(rec)}</li>")
-        parts.append("</ol></div>")
-
-    parts.append("</div>")
-    return "\n".join(parts)
+    blockers = "".join(f"<li>{escape(item)}</li>" for item in presentation.primary_blockers)
+    healthy = "".join(f"<li>{escape(item)}</li>" for item in presentation.healthy_signals)
+    actions = "".join(
+        f'<article class="card step"><span class="step-number">{index:02d}</span><p>{escape(action)}</p></article>'
+        for index, action in enumerate(presentation.next_steps, 1)
+    )
+    if not actions:
+        actions = '<article class="card step"><span class="step-number">✓</span><p>No corrective action is required from the measured checks.</p></article>'
+    chart_data = _chart_data(report)
+    chart_cards = []
+    chart_cards.append(
+        _canvas_card(
+            "Retrieval quality across K",
+            "Higher is better. The dashed reference marks the existing critical Recall threshold.",
+            "retrievalChart",
+            wide=True,
+        )
+        if "retrieval" in chart_data
+        else _empty_card("Retrieval quality across K", "No retrieval evaluation was supplied.")
+    )
+    chart_cards.append(
+        _canvas_card(
+            "Effective rank versus ambient dimensions",
+            "Higher effective rank means more usable dimensions.",
+            "rankChart",
+        )
+        if "rank" in chart_data
+        else _empty_card("Effective rank versus ambient dimensions", "Geometry was not measured.")
+    )
+    chart_cards.append(
+        _canvas_card(
+            "Hubness skewness",
+            "Near 0 is better; values above the reference indicate a long-tail neighbour problem.",
+            "hubnessChart",
+        )
+        if "hubness" in chart_data
+        else _empty_card("Hubness skewness", "Geometry was not measured.")
+    )
+    chart_cards.append(
+        _canvas_card(
+            "Projection fidelity",
+            "Trustworthiness and continuity should be closer to 100%.",
+            "projectionChart",
+            wide=True,
+        )
+        if "projection" in chart_data
+        else _empty_card("Projection fidelity", "No lower-dimensional projection was supplied.")
+    )
+    chart_cards.append(
+        _canvas_card(
+            "Pairwise similarity distribution",
+            "Shows the spread of pairwise cosine similarities.",
+            "similarityChart",
+        )
+        if "similarity" in chart_data
+        else _empty_card(
+            "Pairwise similarity distribution", "Raw pairwise similarities were not retained."
+        )
+    )
+    availability_rows = "".join(
+        f"<tr><td>{escape(key)}</td><td>{'Available' if available else 'Not measured'}</td></tr>"
+        for key, available in presentation.data_availability.items()
+    )
+    js = f"""
+<script type="application/json" id="quality-report-chart-data">{_safe_json(chart_data)}</script>
+<script src="{_CHART_JS}" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {{
+  const root = document.documentElement;
+  const data = JSON.parse(document.getElementById('quality-report-chart-data').textContent);
+  const toggle = document.querySelector('[data-theme-toggle]');
+  let theme = window.localStorage.getItem('quality-report-theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const css = name => getComputedStyle(root).getPropertyValue(name).trim();
+  const colors = ['#b43f48', '#ad6b18', '#206b50', '#7a5cff', '#2d8154'];
+  const thresholdPlugin = {{
+    id: 'thresholdLines',
+    afterDraw(chart, args, pluginOptions) {{
+      const thresholds = pluginOptions.thresholds || {{}};
+      const y = chart.scales.y;
+      const area = chart.chartArea;
+      if (!y || !area) return;
+      Object.entries(thresholds).forEach(([level, value]) => {{
+        const yPos = y.getPixelForValue(value);
+        if (!Number.isFinite(yPos) || yPos < area.top || yPos > area.bottom) return;
+        const color = level === 'critical' ? '#b43f48' : '#ad6b18';
+        const suffix = pluginOptions.suffix || '';
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath(); ctx.moveTo(area.left, yPos); ctx.lineTo(area.right, yPos); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '600 11px Inter, sans-serif';
+        ctx.fillText(level + ': ' + Number(value).toFixed(1) + suffix, area.left + 8, yPos - 6);
+        ctx.restore();
+      }});
+    }}
+  }};
+  const common = (type, source, options = {{}}) => {{
+    if (!source) return;
+    const canvas = document.getElementById(options.id);
+    if (!canvas || !window.Chart) return;
+    const datasets = (source.datasets || []).map((item, index) => ({{
+      ...item, borderColor: colors[index % colors.length], backgroundColor: colors[index % colors.length],
+      borderWidth: 2, tension: .25, pointRadius: 3
+    }}));
+    new Chart(canvas, {{ type, data: {{ labels: source.labels, datasets }}, options: {{
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {{ legend: {{ position: 'bottom', labels: {{ usePointStyle: true, color: css('--text') }} }},
+        thresholdLines: {{ thresholds: source.thresholds || {{}}, suffix: source.threshold_unit || '' }} }},
+      scales: {{ x: {{ ticks: {{ color: css('--muted') }}, grid: {{ color: css('--border') }} }},
+        y: {{ beginAtZero: true, max: options.max, ticks: {{ color: css('--muted') }}, grid: {{ color: css('--border') }} }} }},
+      ...options.extra
+    }}, plugins: [thresholdPlugin]}});
+  }};
+  const bar = (source, id, labels, max) => {{
+    const canvas = document.getElementById(id); if (!canvas || !window.Chart) return;
+    new Chart(canvas, {{
+      type: 'bar',
+      data: {{ labels, datasets: [{{ data: source.values,
+        backgroundColor: ['#ad6b18', '#206b50'], borderColor: ['#ad6b18', '#206b50'],
+        borderWidth: 1.5, borderRadius: 8 }}] }},
+      options: {{
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: {{
+          legend: {{ display: false }},
+          thresholdLines: {{ thresholds: source.thresholds || {{}}, suffix: source.threshold_unit || '' }}
+        }},
+        scales: {{
+          x: {{ ticks: {{ color: css('--muted') }}, grid: {{ display: false }} }},
+          y: {{ beginAtZero: true, max, ticks: {{ color: css('--muted') }}, grid: {{ color: css('--border') }} }}
+        }}
+      }},
+      plugins: [thresholdPlugin]
+    }});
+  }};
+  const render = () => {{
+    root.setAttribute('data-theme', theme);
+    if (toggle) toggle.setAttribute('aria-label', 'Switch to ' + (theme === 'dark' ? 'light' : 'dark') + ' mode');
+    if (!window.Chart) return;
+    common('line', data.retrieval, {{id:'retrievalChart', max:100}});
+    common('line', data.projection, {{id:'projectionChart', max:100}});
+    if (data.rank) bar(data.rank, 'rankChart', data.rank.labels, Math.max(...data.rank.values) * 1.15);
+    if (data.hubness) bar(data.hubness, 'hubnessChart', data.hubness.labels, Math.max(2, data.hubness.values[0] * 1.25));
+    if (data.similarity) bar(data.similarity, 'similarityChart', data.similarity.labels, Math.max(...data.similarity.values) * 1.15);
+  }};
+  if (toggle) toggle.addEventListener('click', () => {{
+    theme = theme === 'dark' ? 'light' : 'dark';
+    window.localStorage.setItem('quality-report-theme', theme);
+    window.location.reload();
+  }});
+  const waitForChart = () => window.Chart ? render() : window.setTimeout(waitForChart, 25); waitForChart();
+}});
+</script>
+"""
+    return "\n".join(
+        [
+            "<!DOCTYPE html>",
+            '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">',
+            f"<title>Embedding Quality Report — {model}</title>{_CSS}</head><body>",
+            '<a class="skip-link" href="#main">Skip to report</a>',
+            '<header class="topbar"><div class="shell topbar-inner"><span class="brand">Embedding Quality Report</span><div class="topbar-actions"><a href="#evidence">Jump to evidence</a><button class="theme-toggle" data-theme-toggle type="button">Toggle theme</button></div></div></header>',
+            '<main id="main" class="shell">',
+            f'<header class="report-header"><div class="hero-grid"><div><div class="eyebrow">{model} · {report.n_samples:,} samples · {report.n_dims:,} dimensions</div><h1>{escape(presentation.headline)}</h1><p class="lead">{escape(presentation.why_it_matters)}</p><div class="chips"><span class="chip">Status: {escape(status.title())}</span><span class="chip">Measured metrics: {len(metrics)}</span></div></div>',
+            f'<aside class="card decision {status}" aria-label="Release readout"><span class="eyebrow">Release readout</span><div class="decision-title">{escape(presentation.headline)}</div><ul>{blockers or "<li>No critical or warning findings were identified.</li>"}{healthy or ""}</ul></aside></div></header>',
+            '<section class="section" aria-labelledby="snapshot-title"><div class="section-head"><div><div class="section-kicker">At a glance</div><h2 id="snapshot-title">Quality snapshot</h2></div><p class="section-note">Each card states what the number means and which direction is preferred.</p></div><div class="kpi-grid">',
+            _metric_card(
+                "Best Recall",
+                best_recall,
+                "Retrieval was not measured.",
+            ),
+            _metric_card(
+                "Cluster separation",
+                _metric_by_prefix(presentation, "clustering.silhouette"),
+                "Clustering was not measured.",
+            ),
+            _metric_card(
+                "Projection fidelity",
+                _metric_by_prefix(presentation, "projection.trustworthiness"),
+                "Projection was not measured.",
+            ),
+            _metric_card(
+                "Effective geometry",
+                _metric_by_prefix(presentation, "geometry.effective_rank"),
+                "Geometry was not measured.",
+            ),
+            "</div></section>",
+            f'<section id="evidence" class="section" aria-labelledby="evidence-title"><div class="section-head"><div><div class="section-kicker">Evidence</div><h2 id="evidence-title">What the measurements show</h2></div><p class="section-note">Charts are responsive and use only values present in the report.</p></div><div class="chart-grid">{"".join(chart_cards)}</div></section>',
+            '<section class="section" aria-labelledby="interpretation-title"><div class="section-head"><div><div class="section-kicker">Interpretation</div><h2 id="interpretation-title">What this means</h2></div></div><div class="narrative-grid"><article class="card narrative"><h3>Primary blockers</h3><ul class="simple-list">'
+            + (blockers or "<li>None identified.</li>")
+            + '</ul></article><article class="card narrative"><h3>Healthy signals</h3><ul class="simple-list">'
+            + (healthy or "<li>No additional healthy signals reported.</li>")
+            + '</ul></article><article class="card narrative"><h3>Why it matters</h3><p>'
+            + escape(presentation.why_it_matters)
+            + "</p></article></div></section>",
+            f'<section class="section" aria-labelledby="steps-title"><div class="section-head"><div><div class="section-kicker">Action</div><h2 id="steps-title">Recommended next steps</h2></div></div><div class="steps-grid">{actions}</div></section>',
+            '<section class="section" aria-labelledby="metrics-title"><div class="section-head"><div><div class="section-kicker">Reference</div><h2 id="metrics-title">Metric interpretation</h2></div><p class="section-note">Thresholds are guidance from the library; metrics without dedicated thresholds remain informational.</p></div><div class="card table-card"><div class="table-wrap"><table><thead><tr><th>Metric</th><th>Observed</th><th>Status</th><th>Ideal direction</th><th>Reference</th><th>What it evaluates</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></div></section>',
+            f'<section class="section" aria-labelledby="coverage-title"><div class="section-head"><div><div class="section-kicker">Coverage</div><h2 id="coverage-title">What was measured</h2></div></div><div class="card table-card"><div class="table-wrap"><table><thead><tr><th>Evidence</th><th>Availability</th></tr></thead><tbody>{availability_rows}</tbody></table></div></div></section>',
+            '<section class="section" aria-labelledby="read-title"><div class="card"><details open><summary id="read-title">How to read this report</summary><ul class="simple-list"><li><strong>Intrinsic geometry:</strong> asks whether vectors are too similar or point in one dominant direction.</li><li><strong>Clustering:</strong> asks whether groups are separated and internally coherent. Silhouette is higher-is-better; Davies–Bouldin is lower-is-better.</li><li><strong>Geometry:</strong> asks how many dimensions are useful and whether a few points dominate neighbour lists.</li><li><strong>Projection:</strong> asks whether a 2D or low-dimensional view preserves neighbourhood relationships.</li><li><strong>Retrieval:</strong> asks whether relevant items are found and ranked near the top. Higher values are better; 100% is the maximum.</li><li><strong>Not measured:</strong> means the required input or raw trace was not available, not that the metric failed.</li></ul></details></div></section>',
+            f'<footer class="footer">Generated for {model}. Chart data and narrative content are derived from the supplied quality report.</footer>',
+            "</main>",
+            js,
+            "</body></html>",
+        ]
+    )
 
 
 class HtmlExporter(ReportExporter):
     def to_string(self, report, interpretation=None) -> str:
-        try:
-            from nlpie.backends.plotly import PlotlyBackend
-
-            backend = PlotlyBackend()
-            dashboard = backend.full_dashboard(report)
-
-            parts = ["<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>", _CSS]
-            parts.append("<div class='dash-wrap'>")
-
-            model_name = escape(str(getattr(report, "model_name", "unnamed")))
-            n_samples = getattr(report, "n_samples", 0)
-            n_dims = getattr(report, "n_dims", 0)
-
-            # KPI — native HTML cards (shared data source with the Plotly figure)
-            kpi_html = _build_kpi_html(report)
-            parts.append("<div class='dash-section'>")
-            parts.append(
-                f"<div class='dash-section-header'>"
-                f"Key Performance Indicators"
-                f"<span class='sub'>{model_name} — "
-                f"{n_samples:,} samples · {n_dims:,} dimensions</span>"
-                f"</div>"
-            )
-            parts.append(kpi_html)
-            parts.append("</div>")
-
-            # Charts grid
-            if dashboard.charts:
-                parts.append("<div class='dash-section'>")
-                parts.append(
-                    f"<div class='dash-section-header'>"
-                    f"Embedding Quality Charts"
-                    f"<span class='sub'>{model_name}</span>"
-                    f"</div>"
-                )
-                parts.append("<div class='chart-grid'>")
-                for i, (_, fig) in enumerate(dashboard.charts):
-                    include_js = "cdn" if i == 0 else False
-                    parts.append(fig.to_html(include_plotlyjs=include_js, full_html=False))
-                parts.append("</div>")
-                parts.append("</div>")
-
-            # Storytelling — native HTML (shared story data with the Plotly figure)
-            explanations = []
-            if interpretation is not None:
-                interp_explanations = getattr(interpretation, "explanations", None)
-                if interp_explanations is not None:
-                    explanations = interp_explanations
-            if explanations:
-                parts.append("<div class='dash-section'>")
-                parts.append(
-                    f"<div class='dash-section-header'>"
-                    f"Analysis &amp; Recommendations"
-                    f"<span class='sub'>{model_name}</span>"
-                    f"</div>"
-                )
-                parts.append(_build_story_html(build_story(explanations)))
-                parts.append("</div>")
-
-            parts.append("</div></body></html>")
-            return "\n".join(parts)
-        except ImportError:
-            lines = [
-                "<!DOCTYPE html><html><body>",
-                "<h1>Embedding Quality Report</h1>",
-                "<pre>",
-                escape(str(report)),
-                "</pre>",
-                "<p><em>Plotly not installed — "
-                "install with: pip install 'nlpie[plotting]'</em></p>",
-                "</body></html>",
-            ]
-            return "\n".join(lines)
+        return _build_html(report, build_presentation(report, interpretation))
 
     def export(self, report, path: str, interpretation=None) -> None:
-        html = self.to_string(report, interpretation=interpretation)
         with open(path, "w") as f:
-            f.write(html)
+            f.write(self.to_string(report, interpretation=interpretation))

@@ -192,6 +192,18 @@ class TestFullDashboard:
         assert isinstance(result, Dashboard)
         assert mock.calls[0] == ("full_dashboard", report, None)
 
+    def test_plot_quality_report_accepts_named_interpretation(self):
+        mock = MockBackend()
+        from nlpie.dashboard import plot_quality_report
+        from nlpie.interpret import InterpretationReport
+
+        report = object()
+        interpretation = InterpretationReport()
+        result = plot_quality_report(report, backend=mock, interpretation=interpretation)
+
+        assert isinstance(result, Dashboard)
+        assert mock.calls[0] == ("full_dashboard", report, interpretation)
+
     def test_plot_quality_report_default_backend(self):
         try:
             import plotly  # noqa: F401
@@ -218,7 +230,28 @@ class TestFullDashboard:
         for fig in [result.kpi, *(fig for _, fig in result.charts)]:
             assert fig.layout.paper_bgcolor == "#ffffff"
             assert fig.layout.plot_bgcolor == "#ffffff"
-        assert result.story is None
+        assert result.story is not None
+
+    def test_plotly_retrieval_chart_contains_all_metrics(self):
+        from nlpie.backends.plotly import PlotlyBackend
+        from nlpie.metrics.quality import EmbeddingQualityReport, RetrievalMetrics
+
+        report = EmbeddingQualityReport(
+            model_name="test",
+            n_samples=2,
+            n_dims=2,
+            retrieval=[RetrievalMetrics(1, 0.1, 0.2, 0.3, 0.4, 0.5)],
+        )
+        dashboard = PlotlyBackend().full_dashboard(report)
+        retrieval = dict(dashboard.charts)["Retrieval Quality"]
+
+        assert {trace.name for trace in retrieval.data} == {
+            "Recall@K",
+            "Precision@K",
+            "MRR",
+            "nDCG@K",
+            "Coverage",
+        }
 
     def test_full_dashboard_empty_report(self):
         try:
@@ -236,7 +269,7 @@ class TestFullDashboard:
         assert isinstance(result, Dashboard)
         assert isinstance(result.kpi, go.Figure)
         assert isinstance(result.charts, list)
-        assert result.story is None
+        assert result.story is not None
 
     def test_dashboard_figures_order_and_show(self):
         class _FakeFig:

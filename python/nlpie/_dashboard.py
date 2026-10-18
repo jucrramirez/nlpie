@@ -45,8 +45,12 @@ def plot_retrieval_metrics(
     precision: Sequence[float],
     ndcg: Sequence[float],
     backend: PlotBackend | None = None,
+    mrr: Sequence[float] | None = None,
+    coverage: Sequence[float] | None = None,
 ) -> object:
-    return _resolve_backend(backend).retrieval_metrics_curve(k_values, recall, precision, ndcg)
+    return _resolve_backend(backend).retrieval_metrics_curve_extended(
+        k_values, recall, precision, ndcg, mrr, coverage
+    )
 
 
 def plot_similarity_heatmap(

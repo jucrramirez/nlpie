@@ -58,5 +58,442 @@
       "ndcg": 0.026406812257259087,
       "coverage": 0.05
     }
-  ]
+  ],
+  "interpretation": [
+    {
+      "metric": "hubness",
+      "severity": "critical",
+      "summary": "Severe hubness detected (skewness=1.81). 43 point(s) appear in more than twice the expected neighbour lists.",
+      "detail": "The K-NN distribution is heavily right-skewed \u2014 a small number of points (hubs) appear in the neighbour lists of a large fraction of other points. This can degrade retrieval quality and distort downstream evaluation.",
+      "recommendation": "Consider applying PCA whitening, contrastive loss post-processing, or removing hub points before downstream tasks."
+    },
+    {
+      "metric": "effective_rank",
+      "severity": "critical",
+      "summary": "Very low effective rank (5.5 of 64 dimensions).",
+      "detail": "The embedding occupies a much lower intrinsic dimensionality (5.5) than its ambient dimension (64). This suggests severe redundancy \u2014 most dimensions are noise or highly correlated.",
+      "recommendation": "Consider PCA whitening or reducing embedding dimensionality. If using a decoder-based model, check for posterior collapse."
+    },
+    {
+      "metric": "retrieval",
+      "severity": "critical",
+      "summary": "Retrieval quality is very low (max Recall@K=0.050, max nDCG=0.026).",
+      "detail": "The embedding space struggles to rank relevant items near the top.",
+      "recommendation": "Consider fine-tuning embeddings with a retrieval-aware loss (e.g., triplet loss, contrastive loss, or ListNet). Check if the embedding space is aligned with the retrieval task."
+    },
+    {
+      "metric": "intrinsic",
+      "severity": "info",
+      "summary": "Very low mean cosine similarity (-0.002) \u2014 points are nearly orthogonal.",
+      "detail": "Near-orthogonal vectors indicate a high-capacity space with low redundancy.",
+      "recommendation": "No action required. The space appears well-conditioned."
+    },
+    {
+      "metric": "clustering",
+      "severity": "info",
+      "summary": "Clustering metrics are within acceptable ranges.",
+      "detail": "ARI=N/A, NMI=N/A, Purity=N/A, Silhouette (cosine)=0.943, Davies-Bouldin (cosine)=0.056.",
+      "recommendation": "No action required."
+    },
+    {
+      "metric": "similarity_to_mean",
+      "severity": "info",
+      "summary": "Similarity to the global mean is 0.032.",
+      "detail": "The space is well spread around the centroid.",
+      "recommendation": "No action required."
+    },
+    {
+      "metric": "projection",
+      "severity": "info",
+      "summary": "Projection quality is good (mean Trustworthiness=0.902, mean Continuity=0.915).",
+      "detail": "The low-dimensional projection preserves neighbourhood structure well.",
+      "recommendation": "No action required."
+    }
+  ],
+  "summary": {
+    "status": "critical",
+    "headline": "Strong structure, weak retrieval.",
+    "why_it_matters": "An embedding can look separated or well-conditioned while still placing task-relevant items too low in the nearest-neighbour ranking.",
+    "primary_blockers": [
+      "Severe hubness detected (skewness=1.81). 43 point(s) appear in more than twice the expected neighbour lists.",
+      "Very low effective rank (5.5 of 64 dimensions).",
+      "Retrieval quality is very low (max Recall@K=0.050, max nDCG=0.026)."
+    ],
+    "healthy_signals": [
+      "Very low mean cosine similarity (-0.002) \u2014 points are nearly orthogonal.",
+      "Clustering metrics are within acceptable ranges.",
+      "Similarity to the global mean is 0.032.",
+      "Projection quality is good (mean Trustworthiness=0.902, mean Continuity=0.915)."
+    ]
+  },
+  "metric_interpretation": [
+    {
+      "metric": "intrinsic.mean",
+      "family": "Intrinsic geometry",
+      "value": -0.0023387728724628687,
+      "formatted": "-0.0023",
+      "available": true,
+      "status": "info",
+      "ideal": "Lower alignment; values near 0 are typically desirable.",
+      "reference": "Warning > 0.50; critical > 0.80",
+      "explanation": "Average cosine similarity between pairs of vectors."
+    },
+    {
+      "metric": "intrinsic.std",
+      "family": "Intrinsic geometry",
+      "value": 0.49014219641685486,
+      "formatted": "0.4901",
+      "available": true,
+      "status": "info",
+      "ideal": "A sufficiently varied distribution; no universal target.",
+      "reference": "Warning < 0.05",
+      "explanation": "Spread of pairwise similarities; a very narrow spread can indicate collapse."
+    },
+    {
+      "metric": "intrinsic.min",
+      "family": "Intrinsic geometry",
+      "value": -0.5281211137771606,
+      "formatted": "-0.5281",
+      "available": true,
+      "status": "measured",
+      "ideal": "Descriptive range; interpret with mean and standard deviation.",
+      "reference": "Descriptive only",
+      "explanation": "Lowest observed pairwise cosine similarity."
+    },
+    {
+      "metric": "intrinsic.max",
+      "family": "Intrinsic geometry",
+      "value": 0.9743958711624146,
+      "formatted": "0.9744",
+      "available": true,
+      "status": "measured",
+      "ideal": "Descriptive range; interpret with mean and standard deviation.",
+      "reference": "Descriptive only",
+      "explanation": "Highest observed pairwise cosine similarity."
+    },
+    {
+      "metric": "clustering.ari",
+      "family": "Clustering",
+      "value": null,
+      "formatted": "N/A \u2014 not measured",
+      "available": false,
+      "status": "unavailable",
+      "ideal": "Higher is better; maximum 1.0.",
+      "reference": "Requires labels and predictions",
+      "explanation": "ARI needs label data and is not available in this report."
+    },
+    {
+      "metric": "clustering.nmi",
+      "family": "Clustering",
+      "value": null,
+      "formatted": "N/A \u2014 not measured",
+      "available": false,
+      "status": "unavailable",
+      "ideal": "Higher is better; maximum 1.0.",
+      "reference": "Requires labels and predictions",
+      "explanation": "NMI needs label data and is not available in this report."
+    },
+    {
+      "metric": "clustering.purity",
+      "family": "Clustering",
+      "value": null,
+      "formatted": "N/A \u2014 not measured",
+      "available": false,
+      "status": "unavailable",
+      "ideal": "Higher is better; maximum 1.0.",
+      "reference": "Requires labels and predictions",
+      "explanation": "Purity needs label data and is not available in this report."
+    },
+    {
+      "metric": "clustering.silhouette",
+      "family": "Clustering",
+      "value": 0.9425293207168579,
+      "formatted": "0.9425",
+      "available": true,
+      "status": "info",
+      "ideal": "Higher is better; maximum 1.0.",
+      "reference": "Warning < 0.25; critical < 0.10",
+      "explanation": "Measures how separated and internally coherent clusters are."
+    },
+    {
+      "metric": "clustering.davies_bouldin",
+      "family": "Clustering",
+      "value": 0.056002020835876465,
+      "formatted": "0.0560",
+      "available": true,
+      "status": "info",
+      "ideal": "Lower is better; 0 is ideal.",
+      "reference": "Warning > 0.50; critical > 1.00",
+      "explanation": "Measures cluster overlap; lower values mean cleaner separation."
+    },
+    {
+      "metric": "geometry.effective_rank",
+      "family": "Geometry",
+      "value": 5.522657871246338,
+      "formatted": "5.52 / 64",
+      "available": true,
+      "status": "critical",
+      "ideal": "Closer to ambient dimensions is better.",
+      "reference": "Warning < 38.4; critical < 19.2",
+      "explanation": "Estimates how many dimensions carry meaningful variation."
+    },
+    {
+      "metric": "geometry.mean_similarity",
+      "family": "Geometry",
+      "value": 0.031660022615493895,
+      "formatted": "0.0317",
+      "available": true,
+      "status": "info",
+      "ideal": "Lower alignment with the global mean is generally better.",
+      "reference": "Warning > 0.50; critical > 0.80",
+      "explanation": "Measures whether vectors point toward one dominant global direction."
+    },
+    {
+      "metric": "geometry.hubness_skewness",
+      "family": "Geometry",
+      "value": 1.8136566877365112,
+      "formatted": "1.8137",
+      "available": true,
+      "status": "critical",
+      "ideal": "Near 0 is better.",
+      "reference": "Warning > 0.50; critical > 1.00",
+      "explanation": "Measures whether a small number of points appear in too many neighbour lists."
+    },
+    {
+      "metric": "geometry.hubness_k",
+      "family": "Geometry",
+      "value": 5,
+      "formatted": "5",
+      "available": true,
+      "status": "measured",
+      "ideal": "Context for the hubness calculation.",
+      "reference": "Configuration value",
+      "explanation": "Neighbourhood size used to measure hubness."
+    },
+    {
+      "metric": "projection.trustworthiness@5",
+      "family": "Projection",
+      "value": 0.8968995213508606,
+      "formatted": "0.8969",
+      "available": true,
+      "status": "info",
+      "ideal": "Closer to 1.0 is better.",
+      "reference": "Warning < 0.80; critical < 0.50",
+      "explanation": "Measures whether nearby high-dimensional neighbours stay nearby in the projection."
+    },
+    {
+      "metric": "projection.continuity@5",
+      "family": "Projection",
+      "value": 0.9096598029136658,
+      "formatted": "0.9097",
+      "available": true,
+      "status": "info",
+      "ideal": "Closer to 1.0 is better.",
+      "reference": "Warning < 0.80; critical < 0.50",
+      "explanation": "Measures whether projection neighbours reflect relationships in the original space."
+    },
+    {
+      "metric": "projection.trustworthiness@10",
+      "family": "Projection",
+      "value": 0.9077703356742859,
+      "formatted": "0.9078",
+      "available": true,
+      "status": "info",
+      "ideal": "Closer to 1.0 is better.",
+      "reference": "Warning < 0.80; critical < 0.50",
+      "explanation": "Measures whether nearby high-dimensional neighbours stay nearby in the projection."
+    },
+    {
+      "metric": "projection.continuity@10",
+      "family": "Projection",
+      "value": 0.9194223880767822,
+      "formatted": "0.9194",
+      "available": true,
+      "status": "info",
+      "ideal": "Closer to 1.0 is better.",
+      "reference": "Warning < 0.80; critical < 0.50",
+      "explanation": "Measures whether projection neighbours reflect relationships in the original space."
+    },
+    {
+      "metric": "retrieval.recall@1",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "critical",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Warning < 70%; critical < 30%",
+      "explanation": "Share of relevant items retrieved in the top K."
+    },
+    {
+      "metric": "retrieval.precision@1",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Share of the top K results that are relevant."
+    },
+    {
+      "metric": "retrieval.mrr@1",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Rewards putting the first relevant result near the top."
+    },
+    {
+      "metric": "retrieval.ndcg@1",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "critical",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Warning < 70%; critical < 30%",
+      "explanation": "Rewards ranking relevant results early, with graded relevance support."
+    },
+    {
+      "metric": "retrieval.coverage@1",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Share of queries for which at least one relevant item was found."
+    },
+    {
+      "metric": "retrieval.recall@3",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "critical",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Warning < 70%; critical < 30%",
+      "explanation": "Share of relevant items retrieved in the top K."
+    },
+    {
+      "metric": "retrieval.precision@3",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Share of the top K results that are relevant."
+    },
+    {
+      "metric": "retrieval.mrr@3",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Rewards putting the first relevant result near the top."
+    },
+    {
+      "metric": "retrieval.ndcg@3",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "critical",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Warning < 70%; critical < 30%",
+      "explanation": "Rewards ranking relevant results early, with graded relevance support."
+    },
+    {
+      "metric": "retrieval.coverage@3",
+      "family": "Retrieval",
+      "value": 0.0,
+      "formatted": "0.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Share of queries for which at least one relevant item was found."
+    },
+    {
+      "metric": "retrieval.recall@5",
+      "family": "Retrieval",
+      "value": 0.05,
+      "formatted": "5.0%",
+      "available": true,
+      "status": "critical",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Warning < 70%; critical < 30%",
+      "explanation": "Share of relevant items retrieved in the top K."
+    },
+    {
+      "metric": "retrieval.precision@5",
+      "family": "Retrieval",
+      "value": 0.02,
+      "formatted": "2.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Share of the top K results that are relevant."
+    },
+    {
+      "metric": "retrieval.mrr@5",
+      "family": "Retrieval",
+      "value": 0.025,
+      "formatted": "2.5%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Rewards putting the first relevant result near the top."
+    },
+    {
+      "metric": "retrieval.ndcg@5",
+      "family": "Retrieval",
+      "value": 0.026406812257259087,
+      "formatted": "2.6%",
+      "available": true,
+      "status": "critical",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Warning < 70%; critical < 30%",
+      "explanation": "Rewards ranking relevant results early, with graded relevance support."
+    },
+    {
+      "metric": "retrieval.coverage@5",
+      "family": "Retrieval",
+      "value": 0.05,
+      "formatted": "5.0%",
+      "available": true,
+      "status": "measured",
+      "ideal": "Higher is better; maximum 100%.",
+      "reference": "Higher is better; no dedicated severity threshold",
+      "explanation": "Share of queries for which at least one relevant item was found."
+    }
+  ],
+  "next_steps": [
+    "Consider applying PCA whitening, contrastive loss post-processing, or removing hub points before downstream tasks.",
+    "No action required. The space appears well-conditioned.",
+    "Consider PCA whitening or reducing embedding dimensionality. If using a decoder-based model, check for posterior collapse.",
+    "Consider fine-tuning embeddings with a retrieval-aware loss (e.g., triplet loss, contrastive loss, or ListNet). Check if the embedding space is aligned with the retrieval task."
+  ],
+  "data_availability": {
+    "intrinsic": true,
+    "clustering": true,
+    "geometry": true,
+    "projection": true,
+    "retrieval": true,
+    "pairwise_similarities": true,
+    "hubness_counts": true,
+    "sim_to_mean": true
+  }
 }
