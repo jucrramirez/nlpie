@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Embedding quality — Model B (Finetuned) — design draft</title>
+  <title>Embedding quality — Model B (Finetuned)</title>
   <style>
     :root {
       --bg: #f4f7fb;
@@ -112,7 +112,7 @@
 
     .verdict {
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto minmax(0, 1fr);
       gap: 1rem;
       align-items: start;
       padding: clamp(1rem, 2.5vw, 1.65rem);
@@ -133,9 +133,21 @@
     }
     .verdict p { max-width: 840px; margin-bottom: 0; color: #62413e; }
     .verdict strong { display: block; margin-bottom: .25rem; color: var(--navy); }
-    .verdict-stat { text-align: right; }
-    .verdict-stat strong { margin: 0; color: var(--coral); font-size: clamp(1.6rem, 3vw, 2.35rem); line-height: 1; }
-    .verdict-stat span { display: block; color: var(--muted); font-size: .72rem; }
+    .verdict-points { margin: .65rem 0 .55rem; padding-left: 1.2rem; color: #62413e; }
+    .verdict-points li { margin: .28rem 0; }
+    .verdict-points strong { display: inline; color: var(--navy); }
+    .verdict-why { padding-top: .45rem; border-top: 1px solid #f0d8d4; font-size: .86rem; }
+    .verdict-why strong { display: inline; }
+    .verdict-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(72px, 1fr));
+      gap: .5rem;
+      align-self: stretch;
+      grid-column: 1 / -1;
+    }
+    .verdict-stat { min-width: 0; padding: .72rem .65rem; border: 1px solid #efc3bd; border-radius: 12px; background: #fff; }
+    .verdict-stat strong { margin: 0; color: var(--coral); font-size: clamp(1.25rem, 2.4vw, 1.9rem); line-height: 1; }
+    .verdict-stat span { display: block; margin-top: .25rem; color: var(--muted); font-size: .68rem; line-height: 1.2; }
 
     .card-grid {
       display: grid;
@@ -156,7 +168,11 @@
     .metric-card.warning { border-top-color: var(--amber); }
     .metric-card .label { margin-bottom: .45rem; color: var(--muted); font-size: .76rem; font-weight: 700; }
     .metric-card .value { margin-bottom: .28rem; color: var(--navy); font-size: clamp(1.7rem, 3vw, 2.3rem); font-weight: 850; letter-spacing: -.04em; }
+    .metric-card .value.compact { font-size: clamp(1.25rem, 2.5vw, 1.9rem); letter-spacing: -.025em; }
+    .metric-card .reference { margin: .45rem 0 .35rem; color: var(--navy); font-size: .76rem; font-weight: 700; }
+    .metric-card .reference strong { color: var(--blue); }
     .metric-card p { margin-bottom: 0; color: var(--muted); font-size: .82rem; }
+    .reference-note { margin: 1rem 0 0; color: var(--muted); font-size: .8rem; }
 
     .status-grid {
       display: grid;
@@ -244,12 +260,62 @@
     .chart-foot { margin: .45rem 0 0; color: var(--subtle); font-size: .72rem; }
 
     .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
-    table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .83rem; }
+    table { width: 100%; min-width: 1080px; border-collapse: collapse; font-size: .83rem; }
     th, td { padding: .82rem .9rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     th { background: var(--surface-muted); color: var(--muted); font-size: .72rem; letter-spacing: .045em; text-transform: uppercase; }
     tbody tr:last-child td { border-bottom: 0; }
     td strong { color: var(--navy); }
     td.muted { color: var(--muted); }
+
+    .coverage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+      gap: .8rem;
+    }
+    .coverage-card {
+      min-width: 0;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+    }
+    .coverage-card h3 { margin-bottom: .2rem; }
+    .coverage-card > p { margin-bottom: .75rem; color: var(--muted); font-size: .8rem; }
+    .coverage-list { display: grid; gap: .45rem; }
+    .coverage-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: .6rem;
+      align-items: baseline;
+      padding-bottom: .45rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .coverage-row:last-child { padding-bottom: 0; border-bottom: 0; }
+    .coverage-row strong { color: var(--navy); font-size: .8rem; }
+    .coverage-row small { display: block; color: var(--muted); font-size: .72rem; }
+    .coverage-value { color: var(--navy); font-size: .82rem; font-weight: 800; text-align: right; }
+    .compact-table { min-width: 0; font-size: .76rem; }
+    .compact-table th, .compact-table td { padding: .48rem .45rem; }
+    .compact-wrap { border: 0; border-radius: 0; }
+    .guide-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+      gap: .8rem;
+      padding-bottom: .25rem;
+    }
+    .guide-card {
+      min-width: 0;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+    }
+    .guide-card h3 { margin-bottom: .2rem; }
+    .guide-card > p { margin-bottom: .7rem; color: var(--muted); font-size: .8rem; }
+    .guide-card dl { margin: 0; }
+    .guide-card dt { margin-top: .62rem; color: var(--navy); font-size: .79rem; font-weight: 800; }
+    .guide-card dt:first-child { margin-top: 0; }
+    .guide-card dd { margin: .08rem 0 0; color: var(--muted); font-size: .78rem; }
 
     .steps { display: grid; gap: .75rem; }
     .step {
@@ -284,7 +350,7 @@
 
     @media (max-width: 780px) {
       .verdict { grid-template-columns: auto 1fr; }
-      .verdict-stat { grid-column: 2; text-align: left; }
+      .verdict-stats { grid-column: 1 / -1; }
       .chart-grid { grid-template-columns: 1fr; }
       .chart-card.wide { grid-column: auto; }
     }
@@ -298,14 +364,14 @@
 <body>
   <main class="page">
     <header class="hero">
-      <div class="eyebrow">Embedding quality · interpretation-first draft</div>
+      <div class="eyebrow">Embedding quality · interpretation-first report</div>
       <h1>Model B is structurally coherent, but not retrieval-ready.</h1>
       <p class="lede">The embedding separates groups and preserves local neighbourhoods well, yet its geometry is highly compressed and nearest-neighbour retrieval is almost empty. Treat retrieval as the release blocker while using the geometry signals to guide the investigation.</p>
       <div class="hero-meta">
         <span class="pill">Model B (Finetuned)</span>
         <span class="pill">300 samples</span>
         <span class="pill">64 dimensions</span>
-        <span class="pill">Draft report · values from quality_report.json</span>
+        <span class="pill">Source: quality_report.json</span>
       </div>
     </header>
 
@@ -313,37 +379,52 @@
       <div class="verdict-icon" aria-hidden="true">!</div>
       <div>
         <strong>Release readout: needs investigation before downstream search use</strong>
-        <p>Clustering is strong (Silhouette 0.943; Davies–Bouldin 0.056) and projection quality is strong (Trustworthiness 0.902–0.908; Continuity 0.910–0.919). However, maximum Recall@K is only 5% and maximum nDCG is 2.6%, while effective rank is 5.5/64 and hubness skewness is 1.81.</p>
+        <ul class="verdict-points">
+          <li><strong>Structure is strong:</strong> Silhouette is 0.943 and Davies–Bouldin is 0.056; the reference direction is high separation and low overlap.</li>
+          <li><strong>Projection is strong:</strong> Trustworthiness is 0.897–0.908 and continuity is 0.910–0.919; the ideal direction is closer to 1.0.</li>
+          <li><strong>Retrieval is the blocker:</strong> at the best tested cutoff, Recall@5 is 5%, Precision@5 is 2%, and nDCG@5 is 2.6%; the ideal direction is higher, with the library marking Recall below 30% as critical.</li>
+          <li><strong>Geometry needs investigation:</strong> effective rank is 5.5/64 and hubness skewness is 1.81; the library marks rank below 19.2 or hubness above 1.0 as critical.</li>
+        </ul>
+        <p class="verdict-why"><strong>Why this matters:</strong> an embedding can form visually or geometrically separated groups while still placing task-relevant items too low in the nearest-neighbour ranking.</p>
       </div>
-      <div class="verdict-stat"><strong>5%</strong><span>best Recall@K</span></div>
+      <div class="verdict-stats" aria-label="Best retrieval metrics at K equals 5">
+        <div class="verdict-stat"><strong>5%</strong><span>Recall@5</span></div>
+        <div class="verdict-stat"><strong>2%</strong><span>Precision@5</span></div>
+        <div class="verdict-stat"><strong>2.6%</strong><span>nDCG@5</span></div>
+      </div>
     </section>
 
     <section class="panel" aria-labelledby="summary-heading">
       <div class="panel-inner">
         <h2 id="summary-heading">Executive summary</h2>
-        <p class="section-intro">This report separates “the space looks organized” from “the space retrieves the right items.” That distinction matters here: the first is healthy, but the second is not.</p>
+        <p class="section-intro">Read the report in two stages. First ask whether the embedding space is organized: this model separates groups and preserves local neighbourhoods well. Then ask whether that organization serves the retrieval task: it currently does not, because the relevant items are almost absent from the top five results. Each card gives the observed value, the ideal direction, and the library reference used to classify severity.</p>
         <div class="card-grid">
           <article class="metric-card healthy">
             <div class="label">Local separation</div>
             <div class="value">0.943</div>
-            <p>Silhouette is high, so points are well separated on average under cosine distance.</p>
+            <div class="reference"><strong>Reference:</strong> closer to 1.0; warning below 0.25.</div>
+            <p>Why it matters: points are well separated on average under cosine distance.</p>
           </article>
           <article class="metric-card healthy">
             <div class="label">Projection fidelity</div>
             <div class="value">0.902–0.919</div>
-            <p>Trustworthiness and continuity remain high at neighbourhood sizes 5 and 10.</p>
+            <div class="reference"><strong>Reference:</strong> closer to 1.0; warning below 0.80.</div>
+            <p>Why it matters: local neighbourhoods survive the low-dimensional projection.</p>
           </article>
           <article class="metric-card critical">
-            <div class="label">Retrieval outcome</div>
-            <div class="value">0–5%</div>
-            <p>Recall is zero at K=1 and K=3, reaching only 5% at K=5.</p>
+            <div class="label">Retrieval outcome at K=5</div>
+            <div class="value compact">5% · 2% · 2.6%</div>
+            <div class="reference"><strong>Reference:</strong> higher is better; Recall below 30% is critical.</div>
+            <p>Why it matters: Recall, Precision, and nDCG are all low, not just Recall.</p>
           </article>
           <article class="metric-card critical">
             <div class="label">Effective geometry</div>
             <div class="value">5.5 / 64</div>
-            <p>Only about 8.6% of the ambient dimensions are effectively active.</p>
+            <div class="reference"><strong>Reference:</strong> rank toward 64; critical below 19.2. Hubness critical above 1.0.</div>
+            <p>Why it matters: only about 8.6% of ambient dimensions are effectively active, alongside skewness of 1.81.</p>
           </article>
         </div>
+        <p class="reference-note"><strong>Important:</strong> “ideal” is a direction of travel, not a universal production target. Retrieval targets depend on the task, label quality, candidate pool, and operating K; the library thresholds are the concrete comparison used for this assessment.</p>
       </div>
     </section>
 
@@ -393,9 +474,9 @@
 
           <article class="chart-card wide">
             <header><h3>Retrieval scores remain near zero through K=5</h3><span class="status critical">Release blocker</span></header>
-            <p class="chart-note">Recall, precision, and nDCG are shown as percentages to make the practical gap visible.</p>
-            <div class="chart-wrap"><svg class="chart-svg" id="retrieval-chart" role="img" aria-label="Line chart showing retrieval metrics at K 1, 3, and 5"></svg></div>
-            <div class="chart-legend"><span class="key"><i class="coral"></i>Recall@K</span><span class="key"><i class="amber"></i>Precision@K</span><span class="key"><i class="purple"></i>nDCG@K</span></div>
+            <p class="chart-note">All five measured retrieval metrics are shown as percentages to make the practical gap visible.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="retrieval-chart" role="img" aria-label="Line chart showing Recall, Precision, MRR, nDCG, and Coverage at K 1, 3, and 5"></svg></div>
+            <div class="chart-legend"><span class="key"><i class="coral"></i>Recall@K</span><span class="key"><i class="amber"></i>Precision@K</span><span class="key"><i class="purple"></i>nDCG@K</span><span class="key"><i></i>MRR</span><span class="key"><i class="teal"></i>Coverage</span></div>
             <p class="chart-foot">The library’s retrieval classifier marks maximum Recall@K below 0.30 as critical.</p>
           </article>
 
@@ -426,21 +507,82 @@
     <section class="panel" aria-labelledby="table-heading">
       <div class="panel-inner">
         <h2 id="table-heading">Metric interpretation</h2>
-        <p class="section-intro">Short explanations are placed beside the values so a reader does not need to know embedding diagnostics in advance.</p>
+        <p class="section-intro">Short explanations are placed beside the values so a reader does not need to know embedding diagnostics in advance. The reference column makes the comparison explicit instead of leaving the number to stand alone.</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Metric</th><th>Value</th><th>Status</th><th>How to interpret it</th></tr></thead>
+            <thead><tr><th>Metric</th><th>Value</th><th>Status</th><th>Reference / ideal direction</th><th>How to interpret it</th></tr></thead>
             <tbody>
-              <tr><td><strong>Effective rank</strong></td><td>5.52 / 64</td><td><span class="status critical">Critical</span></td><td class="muted">The space uses only a small number of effective directions; the remaining dimensions may be redundant or low-signal.</td></tr>
-              <tr><td><strong>Hubness skewness</strong></td><td>1.814 at K=5</td><td><span class="status critical">Critical</span></td><td class="muted">Neighbour occurrences are right-skewed, so a small set of points may dominate nearest-neighbour lists.</td></tr>
-              <tr><td><strong>Silhouette (cosine)</strong></td><td>0.943</td><td><span class="status healthy">Healthy</span></td><td class="muted">Samples are well separated from other groups on average. This supports coherent cluster structure, not necessarily retrieval relevance.</td></tr>
-              <tr><td><strong>Davies–Bouldin (cosine)</strong></td><td>0.056</td><td><span class="status healthy">Healthy</span></td><td class="muted">Lower is better; this indicates compact, separated groups under the evaluated clustering view.</td></tr>
-              <tr><td><strong>Trustworthiness / continuity</strong></td><td>0.897–0.919</td><td><span class="status healthy">Healthy</span></td><td class="muted">The low-dimensional projection preserves local neighbourhood relationships reasonably well.</td></tr>
-              <tr><td><strong>Retrieval at K</strong></td><td>R@5 0.050 · P@5 0.020 · nDCG@5 0.026</td><td><span class="status critical">Critical</span></td><td class="muted">Relevant items are rarely retrieved or ranked near the top. This is the most important downstream limitation in this report.</td></tr>
-              <tr><td><strong>ARI / NMI / Purity</strong></td><td>N/A</td><td><span class="status info">Not measured</span></td><td class="muted">No label-based cluster metrics were available. Do not infer supervised cluster quality from silhouette alone.</td></tr>
+              <tr><td><strong>Effective rank</strong></td><td>5.52 / 64</td><td><span class="status critical">Critical</span></td><td class="muted">Rank toward 64; library critical below 19.2 (30% of ambient size).</td><td class="muted">The space uses only a small number of effective directions; the remaining dimensions may be redundant or low-signal.</td></tr>
+              <tr><td><strong>Hubness skewness</strong></td><td>1.814 at K=5</td><td><span class="status critical">Critical</span></td><td class="muted">Near 0 is less skewed; library critical above 1.0.</td><td class="muted">Neighbour occurrences are right-skewed, so a small set of points may dominate nearest-neighbour lists.</td></tr>
+              <tr><td><strong>Mean cosine similarity</strong></td><td>-0.002</td><td><span class="status info">In range</span></td><td class="muted">Near 0 is a balanced baseline; warning above 0.5.</td><td class="muted">The average direction is not strongly concentrated, although the bimodal distribution still needs to be read alongside rank and hubness.</td></tr>
+              <tr><td><strong>Silhouette (cosine)</strong></td><td>0.943</td><td><span class="status healthy">Healthy</span></td><td class="muted">Closer to 1 is better; warning below 0.25, critical below 0.10.</td><td class="muted">Samples are well separated from other groups on average. This supports coherent cluster structure, not necessarily retrieval relevance.</td></tr>
+              <tr><td><strong>Davies–Bouldin (cosine)</strong></td><td>0.056</td><td><span class="status healthy">Healthy</span></td><td class="muted">Closer to 0 is better; warning above 0.5, critical above 1.0.</td><td class="muted">This indicates compact, separated groups under the evaluated clustering view.</td></tr>
+              <tr><td><strong>Trustworthiness / continuity</strong></td><td>0.897–0.919</td><td><span class="status healthy">Healthy</span></td><td class="muted">Closer to 1 is better; warning below 0.80, critical below 0.50.</td><td class="muted">The low-dimensional projection preserves local neighbourhood relationships reasonably well.</td></tr>
+              <tr><td><strong>Retrieval at K=5</strong></td><td>R@5 5% · P@5 2% · nDCG@5 2.6%</td><td><span class="status critical">Critical</span></td><td class="muted">Higher is better; task target depends on the candidate pool. Library Recall critical below 30%.</td><td class="muted">Relevant items are rarely retrieved or ranked near the top. This is the most important downstream limitation in this report.</td></tr>
+              <tr><td><strong>ARI / NMI / Purity</strong></td><td>N/A</td><td><span class="status info">Not measured</span></td><td class="muted">Requires label-backed reference data.</td><td class="muted">No label-based cluster metrics were available. Do not infer supervised cluster quality from silhouette alone.</td></tr>
             </tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="coverage-heading">
+      <div class="panel-inner">
+        <h2 id="coverage-heading">Full metric coverage</h2>
+        <p class="section-intro">Charts carry the main story; compact metric blocks keep every available result visible without forcing every number into a chart. Metrics that need extra inputs remain explicit empty states.</p>
+        <div class="coverage-grid">
+          <article class="coverage-card">
+            <span class="tag">Intrinsic space</span>
+            <h3>What is the overall shape of similarity?</h3>
+            <p>These values describe how pairwise directions are distributed.</p>
+            <div class="coverage-list">
+              <div class="coverage-row"><div><strong>Mean similarity</strong><small>Average pairwise cosine</small></div><div class="coverage-value">-0.002</div></div>
+              <div class="coverage-row"><div><strong>Std</strong><small>How spread out similarities are</small></div><div class="coverage-value">0.490</div></div>
+              <div class="coverage-row"><div><strong>Minimum</strong><small>Most negative observed pair</small></div><div class="coverage-value">-0.528</div></div>
+              <div class="coverage-row"><div><strong>Maximum</strong><small>Most similar observed pair</small></div><div class="coverage-value">0.974</div></div>
+            </div>
+          </article>
+
+          <article class="coverage-card">
+            <span class="tag">Geometry</span>
+            <h3>How much usable space is there?</h3>
+            <p>These values reveal concentration, redundancy, and neighbour dominance.</p>
+            <div class="coverage-list">
+              <div class="coverage-row"><div><strong>Effective rank</strong><small>Independent directions carrying signal</small></div><div class="coverage-value">5.52 / 64</div></div>
+              <div class="coverage-row"><div><strong>Similarity to mean</strong><small>Alignment with the global centre</small></div><div class="coverage-value">0.0317</div></div>
+              <div class="coverage-row"><div><strong>Hubness skewness</strong><small>Unevenness of neighbour appearances</small></div><div class="coverage-value">1.814</div></div>
+              <div class="coverage-row"><div><strong>Hubness K</strong><small>Neighbour-list size used</small></div><div class="coverage-value">5</div></div>
+            </div>
+          </article>
+
+          <article class="coverage-card">
+            <span class="tag">Labels unavailable</span>
+            <h3>Which clusters match known classes?</h3>
+            <p>These metrics are included as an empty state until ground-truth labels and predicted assignments are supplied.</p>
+            <div class="coverage-list">
+              <div class="coverage-row"><div><strong>ARI</strong><small>Agreement adjusted for chance</small></div><div class="coverage-value">N/A</div></div>
+              <div class="coverage-row"><div><strong>NMI</strong><small>Shared information between labels</small></div><div class="coverage-value">N/A</div></div>
+              <div class="coverage-row"><div><strong>Purity</strong><small>Dominant class inside each cluster</small></div><div class="coverage-value">N/A</div></div>
+            </div>
+          </article>
+
+          <article class="coverage-card">
+            <span class="tag">Retrieval detail</span>
+            <h3>Do relevant items appear near the top?</h3>
+            <p>The table keeps exact values for every retrieval metric and makes K-by-K lookup easy.</p>
+            <div class="table-wrap compact-wrap">
+              <table class="compact-table">
+                <thead><tr><th>K</th><th>Recall</th><th>Precision</th><th>MRR</th><th>nDCG</th><th>Coverage</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>0%</td><td>0%</td><td>0%</td><td>0%</td><td>0%</td></tr>
+                  <tr><td>3</td><td>0%</td><td>0%</td><td>0%</td><td>0%</td><td>0%</td></tr>
+                  <tr><td>5</td><td>5%</td><td>2%</td><td>2.5%</td><td>2.6%</td><td>5%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
       </div>
     </section>
 
@@ -458,21 +600,83 @@
 
     <section class="panel" aria-labelledby="method-heading">
       <div class="panel-inner">
-        <h2 id="method-heading">How to read this draft</h2>
+        <h2 id="method-heading">How to read this report</h2>
         <details open>
+          <summary>Metric guide in simple words</summary>
+          <div class="guide-grid">
+            <article class="guide-card">
+              <span class="tag">Intrinsic space</span>
+              <h3>Are vectors pointing in useful directions?</h3>
+              <p>These metrics look at the overall pattern of pairwise similarity.</p>
+              <dl>
+                <dt>Mean cosine similarity</dt><dd>On average, how much do two vectors point the same way? Near 0 means they are not all pointing in one shared direction; a high positive value can mean crowding.</dd>
+                <dt>Standard deviation (Std)</dt><dd>How varied are the pairwise similarities? A larger spread means the space contains more different relationships.</dd>
+                <dt>Minimum / Maximum</dt><dd>The most opposite and most similar pair found. They show the range, not the typical pair.</dd>
+              </dl>
+            </article>
+
+            <article class="guide-card">
+              <span class="tag">Geometry</span>
+              <h3>How much of the space is actually being used?</h3>
+              <p>These metrics find redundancy and points that may distort nearest-neighbour search.</p>
+              <dl>
+                <dt>Effective rank</dt><dd>Roughly, how many independent directions carry meaningful information? Compare it with the total number of dimensions.</dd>
+                <dt>Similarity to mean</dt><dd>How much do vectors point toward the space’s average direction? A high value suggests the whole space is pulled toward one centre.</dd>
+                <dt>Hubness skewness</dt><dd>Whether a few points appear as neighbours far more often than others. Higher positive skew means more “popular” points.</dd>
+                <dt>Hubness K</dt><dd>How many neighbours were counted for each point when measuring hubness. It is the search-list size, not a quality score.</dd>
+              </dl>
+            </article>
+
+            <article class="guide-card">
+              <span class="tag">Clustering</span>
+              <h3>Do groups look separate and compact?</h3>
+              <p>These metrics evaluate group structure. They do not prove that the groups match the application’s meaning.</p>
+              <dl>
+                <dt>Silhouette</dt><dd>Are points closer to their own group than to other groups? Higher is better; 1 means very clean separation.</dd>
+                <dt>Davies–Bouldin</dt><dd>How much do groups overlap or spread into each other? Lower is better; 0 is the ideal direction.</dd>
+                <dt>ARI</dt><dd>Do predicted groups match known labels, adjusted for chance? Higher is better, but it needs ground-truth labels.</dd>
+                <dt>NMI</dt><dd>How much information do predicted groups share with known labels? Higher means more agreement; it also needs labels.</dd>
+                <dt>Purity</dt><dd>For each group, how dominant is its most common known class? Higher is better, but it can look good when there are many small groups.</dd>
+              </dl>
+            </article>
+
+            <article class="guide-card">
+              <span class="tag">Projection</span>
+              <h3>Does a smaller picture preserve nearby points?</h3>
+              <p>These metrics judge whether a 2D or low-dimensional view is faithful to the original space.</p>
+              <dl>
+                <dt>Trustworthiness</dt><dd>Does the projection avoid inventing neighbours that were not close originally? Higher is better.</dd>
+                <dt>Continuity</dt><dd>Does the projection keep neighbours that really were close originally? Higher is better.</dd>
+                <dt>K</dt><dd>How many nearby points are considered when checking the projection. Results can change with K.</dd>
+              </dl>
+            </article>
+
+            <article class="guide-card">
+              <span class="tag">Retrieval</span>
+              <h3>Does search put relevant items at the top?</h3>
+              <p>These are downstream task metrics. They are usually the most direct test of whether the embedding works for search.</p>
+              <dl>
+                <dt>Recall@K</dt><dd>Of all relevant items, how many appeared in the first K results? Higher is better.</dd>
+                <dt>Precision@K</dt><dd>Of the first K results, how many were relevant? Higher is better.</dd>
+                <dt>MRR</dt><dd>How high was the first relevant result? A score near 1 means it usually appeared first.</dd>
+                <dt>nDCG@K</dt><dd>How well were relevant results ordered within the first K? It rewards finding relevant items early.</dd>
+                <dt>Coverage</dt><dd>How much of the total relevant-item space appeared at least once across the top-K lists? Higher coverage means the search reaches more of the relevant space.</dd>
+                <dt>K</dt><dd>How many search results are being judged. Always read the score together with K.</dd>
+              </dl>
+            </article>
+          </div>
+        </details>
+        <details>
           <summary>Definitions and evidence notes</summary>
           <ul>
-            <li><strong>Effective rank</strong> estimates how many independent directions carry meaningful variation; it is compared with the ambient dimension, not with a universal pass/fail target.</li>
-            <li><strong>Hubness skewness</strong> describes how unevenly points appear in K-nearest-neighbour lists. Higher positive skew means a longer tail of unusually frequent neighbours.</li>
-            <li><strong>Recall@K</strong> asks how many relevant items appear in the top K; <strong>Precision@K</strong> asks how much of the top K is relevant; <strong>nDCG@K</strong> rewards relevant items appearing earlier in the ranking.</li>
-            <li>The similarity and hubness histograms are compact, source-derived summaries of the traces already present in <code>quality_report.html</code>; no new observations were added. The dense pairwise matrix is intentionally not part of the first-view draft because it is difficult to interpret at common screen sizes.</li>
+            <li>The similarity and hubness histograms are compact, source-derived summaries of the traces already present in <code>quality_report.html</code>; no new observations were added. The dense pairwise matrix is intentionally not part of the first-view report because it is difficult to interpret at common screen sizes.</li>
             <li>“Healthy” means healthy for the evaluated diagnostic and threshold, not a guarantee of production performance. Missing label-based metrics remain explicitly marked as unavailable.</li>
           </ul>
         </details>
       </div>
     </section>
 
-    <p class="footer-note">Design draft only. The library exporter and notebooks have not been modified.</p>
+    <p class="footer-note">Metric snapshot: Model B (Finetuned) · 300 samples · 64 dimensions.</p>
   </main>
 
   <script>
@@ -484,7 +688,7 @@
     const NS = 'http://www.w3.org/2000/svg';
     const data = {
       projection: { k: [5, 10], trust: [0.8968995214, 0.9077703357], continuity: [0.9096598029, 0.9194223881] },
-      retrieval: { k: [1, 3, 5], recall: [0, 0, 0.05], precision: [0, 0, 0.02], ndcg: [0, 0, 0.0264068123] },
+      retrieval: { k: [1, 3, 5], recall: [0, 0, 0.05], precision: [0, 0, 0.02], mrr: [0, 0, 0.025], ndcg: [0, 0, 0.0264068123], coverage: [0, 0, 0.05] },
       similarityBins: [
         { label: '-0.6 to -0.5', count: 23 }, { label: '-0.5 to -0.4', count: 2769 },
         { label: '-0.4 to -0.3', count: 10725 }, { label: '-0.3 to -0.2', count: 12232 },
@@ -576,7 +780,7 @@
     }
     function drawRetrieval() {
       drawLineChart('retrieval-chart', [
-        { values: data.retrieval.recall, color: COLORS.coral }, { values: data.retrieval.precision, color: COLORS.amber }, { values: data.retrieval.ndcg, color: COLORS.purple }
+        { values: data.retrieval.recall, color: COLORS.coral }, { values: data.retrieval.precision, color: COLORS.amber }, { values: data.retrieval.ndcg, color: COLORS.purple }, { values: data.retrieval.mrr, color: COLORS.blue }, { values: data.retrieval.coverage, color: COLORS.teal }
       ], 1, v => `${(v * 100).toFixed(v === 0 ? 0 : 1)}%`, data.retrieval.k, .3);
     }
     function drawHistogram(id, values, min, max, mean = null, xLabel = '') {
