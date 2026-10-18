@@ -1,3 +1,4 @@
+use crate::core::metrics::distance::{DistanceMetric, distance};
 use crate::errors::PreprocessingError;
 use ndarray::Array2;
 use rayon::prelude::*;
@@ -11,10 +12,9 @@ use rayon::prelude::*;
 pub fn compute_hubness(
     embeddings: &Array2<f32>,
     k: usize,
+    metric: DistanceMetric,
 ) -> Result<(Vec<usize>, f32), PreprocessingError> {
     let n_samples = embeddings.nrows();
-    let n_features = embeddings.ncols();
-
     if n_samples == 0 {
         return Err(PreprocessingError::InvalidShape);
     }
@@ -22,24 +22,20 @@ pub fn compute_hubness(
         return Err(PreprocessingError::InvalidK { k, n_samples });
     }
 
+    let prepared = metric.prepare(embeddings);
     let hubness_counts: Vec<usize> = (0..n_samples)
         .into_par_iter()
         .with_min_len(100)
         .flat_map_iter(|i| {
-            let row_i = embeddings.row(i);
+            let row_i = prepared.row(i);
 
             let mut distances: Vec<(usize, f32)> = Vec::with_capacity(n_samples);
             for j in 0..n_samples {
                 if i == j {
                     continue;
                 }
-                let row_j = embeddings.row(j);
-                let mut dist_sq = 0.0;
-                for f in 0..n_features {
-                    let d = row_i[f] - row_j[f];
-                    dist_sq += d * d;
-                }
-                distances.push((j, dist_sq));
+                let row_j = prepared.row(j);
+                distances.push((j, distance(row_i, row_j, metric)));
             }
 
             distances.sort_unstable_by(|a, b| {

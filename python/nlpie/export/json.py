@@ -23,7 +23,7 @@ def _report_to_dict(report) -> dict:
             "nmi": m.nmi,
             "purity": m.purity,
             "silhouette": m.silhouette,
-            "calinski_harabasz": m.calinski_harabasz,
+            "davies_bouldin": m.davies_bouldin,
         }
 
     if hasattr(report, "geometry") and report.geometry is not None:

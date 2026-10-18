@@ -2,10 +2,13 @@ import numpy as np
 import pytest
 from nlpie._api import (
     cosine_similarity_matrix,
+    davies_bouldin_score,
     pairwise_cosine_stats,
     pearson_correlation,
+    silhouette_score,
     spearman_correlation,
 )
+from nlpie._errors import PreprocessingError
 from nlpie._similarity import reconstruct_similarity_matrix
 
 
@@ -16,6 +19,22 @@ def test_cosine_similarity_matrix():
     assert np.allclose(sim[0][2], 0.7071, atol=1e-4)
     assert np.allclose(sim[1][2], 0.7071, atol=1e-4)
     assert np.allclose(sim[0][0], 1.0, atol=1e-4)
+
+
+def test_cosine_clustering_metrics_are_invariant_to_row_scaling():
+    embeddings = np.array([[1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [0.0, 2.0]])
+    scaled = np.array([[10.0, 0.0], [0.5, 0.0], [0.0, 3.0], [0.0, 0.25]])
+    labels = [0, 0, 1, 1]
+
+    assert np.isclose(silhouette_score(embeddings, labels), silhouette_score(scaled, labels))
+    assert np.isclose(
+        davies_bouldin_score(embeddings, labels), davies_bouldin_score(scaled, labels)
+    )
+
+
+def test_distance_metric_validation():
+    with pytest.raises(PreprocessingError, match="unsupported distance metric"):
+        silhouette_score([[1.0, 0.0], [0.0, 1.0]], [0, 1], metric="manhattan")
 
 
 def test_pairwise_cosine_stats_triangle_size_and_order():

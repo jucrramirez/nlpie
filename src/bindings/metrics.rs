@@ -9,8 +9,9 @@ use crate::core::metrics::clustering::labels::{
     purity_score as core_purity,
 };
 use crate::core::metrics::clustering::quality::{
-    calinski_harabasz_score as core_ch_score, silhouette_score as core_silhouette,
+    davies_bouldin_score as core_davies_bouldin, silhouette_score as core_silhouette,
 };
+use crate::core::metrics::distance::DistanceMetric;
 use crate::core::metrics::geometry::anisotropy::{
     compute_covariance_and_eigenvalues as core_cov_eig, effective_rank as core_effective_rank,
     similarity_to_global_mean as core_sim_mean,
@@ -109,18 +110,27 @@ pub fn purity_score(labels_true: Vec<i32>, labels_pred: Vec<i32>) -> PyResult<f6
 }
 
 #[pyfunction]
-pub fn calinski_harabasz_score(
+#[pyo3(signature = (embeddings, labels, metric = "cosine"))]
+pub fn silhouette_score(
     embeddings: PyReadonlyArray2<f32>,
     labels: Vec<i32>,
+    metric: &str,
 ) -> PyResult<f32> {
     let arr = to_ndarray(embeddings);
-    core_ch_score(&arr, &labels).map_err(Into::into)
+    let metric = DistanceMetric::parse(metric)?;
+    core_silhouette(&arr, &labels, metric).map_err(Into::into)
 }
 
 #[pyfunction]
-pub fn silhouette_score(embeddings: PyReadonlyArray2<f32>, labels: Vec<i32>) -> PyResult<f32> {
+#[pyo3(signature = (embeddings, labels, metric = "cosine"))]
+pub fn davies_bouldin_score(
+    embeddings: PyReadonlyArray2<f32>,
+    labels: Vec<i32>,
+    metric: &str,
+) -> PyResult<f32> {
     let arr = to_ndarray(embeddings);
-    core_silhouette(&arr, &labels).map_err(Into::into)
+    let metric = DistanceMetric::parse(metric)?;
+    core_davies_bouldin(&arr, &labels, metric).map_err(Into::into)
 }
 
 // ================= Geometry & Hubness Metrics =================
@@ -140,10 +150,15 @@ pub fn similarity_to_global_mean(embeddings: PyReadonlyArray2<f32>) -> PyResult<
 }
 
 #[pyfunction]
-#[pyo3(signature = (embeddings, k = 5))]
-pub fn compute_hubness(embeddings: PyReadonlyArray2<f32>, k: usize) -> PyResult<(Vec<usize>, f32)> {
+#[pyo3(signature = (embeddings, k = 5, metric = "cosine"))]
+pub fn compute_hubness(
+    embeddings: PyReadonlyArray2<f32>,
+    k: usize,
+    metric: &str,
+) -> PyResult<(Vec<usize>, f32)> {
     let arr = to_ndarray(embeddings);
-    core_hubness(&arr, k).map_err(Into::into)
+    let metric = DistanceMetric::parse(metric)?;
+    core_hubness(&arr, k, metric).map_err(Into::into)
 }
 
 // ================= Projection Quality Metrics =================
@@ -153,15 +168,19 @@ pub fn compute_hubness(embeddings: PyReadonlyArray2<f32>, k: usize) -> PyResult<
 /// Measures whether K nearest neighbours in the projection were also neighbours
 /// in the original space. Returns a score in [0, 1] (1 = perfect).
 #[pyfunction]
-#[pyo3(signature = (high_dim, low_dim, k = 10))]
+#[pyo3(signature = (high_dim, low_dim, k = 10, high_metric = "cosine", low_metric = "euclidean"))]
 pub fn trustworthiness(
     high_dim: PyReadonlyArray2<f32>,
     low_dim: PyReadonlyArray2<f32>,
     k: usize,
+    high_metric: &str,
+    low_metric: &str,
 ) -> PyResult<f32> {
     let high = to_ndarray(high_dim);
     let low = to_ndarray(low_dim);
-    core_trustworthiness(&high, &low, k).map_err(Into::into)
+    let high_metric = DistanceMetric::parse(high_metric)?;
+    let low_metric = DistanceMetric::parse(low_metric)?;
+    core_trustworthiness(&high, &low, k, high_metric, low_metric).map_err(Into::into)
 }
 
 /// Computes continuity of a low-dimensional projection.
@@ -169,15 +188,19 @@ pub fn trustworthiness(
 /// Measures whether K nearest neighbours in the original space are preserved
 /// in the projection. Returns a score in [0, 1] (1 = perfect).
 #[pyfunction]
-#[pyo3(signature = (high_dim, low_dim, k = 10))]
+#[pyo3(signature = (high_dim, low_dim, k = 10, high_metric = "cosine", low_metric = "euclidean"))]
 pub fn continuity(
     high_dim: PyReadonlyArray2<f32>,
     low_dim: PyReadonlyArray2<f32>,
     k: usize,
+    high_metric: &str,
+    low_metric: &str,
 ) -> PyResult<f32> {
     let high = to_ndarray(high_dim);
     let low = to_ndarray(low_dim);
-    core_continuity(&high, &low, k).map_err(Into::into)
+    let high_metric = DistanceMetric::parse(high_metric)?;
+    let low_metric = DistanceMetric::parse(low_metric)?;
+    core_continuity(&high, &low, k, high_metric, low_metric).map_err(Into::into)
 }
 
 /// Computes trustworthiness and continuity for several `k` values in one pass.
@@ -186,15 +209,19 @@ pub fn continuity(
 /// `k`. Returns a list of `(k, trustworthiness, continuity)` triples in the
 /// same order as `k_values`.
 #[pyfunction]
-#[pyo3(signature = (high_dim, low_dim, k_values))]
+#[pyo3(signature = (high_dim, low_dim, k_values, high_metric = "cosine", low_metric = "euclidean"))]
 pub fn projection_quality(
     high_dim: PyReadonlyArray2<f32>,
     low_dim: PyReadonlyArray2<f32>,
     k_values: Vec<usize>,
+    high_metric: &str,
+    low_metric: &str,
 ) -> PyResult<Vec<(usize, f32, f32)>> {
     let high = to_ndarray(high_dim);
     let low = to_ndarray(low_dim);
-    core_projection_quality(&high, &low, &k_values).map_err(Into::into)
+    let high_metric = DistanceMetric::parse(high_metric)?;
+    let low_metric = DistanceMetric::parse(low_metric)?;
+    core_projection_quality(&high, &low, &k_values, high_metric, low_metric).map_err(Into::into)
 }
 
 // ================= Retrieval & Ranking Metrics =================

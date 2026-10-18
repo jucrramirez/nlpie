@@ -37,11 +37,11 @@ class MarkdownExporter(ReportExporter):
                     "",
                     "| Metric | Value |",
                     "|--------|-------|",
-                    f"| ARI | {m.ari:.4f} |",
-                    f"| NMI | {m.nmi:.4f} |",
-                    f"| Purity | {m.purity:.4f} |",
-                    f"| Silhouette | {m.silhouette:.4f} |",
-                    f"| Calinski-Harabasz | {m.calinski_harabasz:.2f} |",
+                    f"| ARI | {m.ari:.4f} |" if m.ari is not None else "| ARI | N/A |",
+                    f"| NMI | {m.nmi:.4f} |" if m.nmi is not None else "| NMI | N/A |",
+                    f"| Purity | {m.purity:.4f} |" if m.purity is not None else "| Purity | N/A |",
+                    f"| Silhouette (cosine) | {m.silhouette:.4f} |",
+                    f"| Davies-Bouldin (cosine) | {m.davies_bouldin:.4f} |",
                     "",
                 ]
             )

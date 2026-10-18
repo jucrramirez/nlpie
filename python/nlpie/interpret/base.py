@@ -59,4 +59,3 @@ class ExplanationProvider(ABC):
         Returns one :class:`Explanation` per covered metric present in the
         report, or an empty list when the report lacks the relevant sections.
         """
-        ...

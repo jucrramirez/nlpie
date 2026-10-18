@@ -6,13 +6,13 @@ from ._api import (
     WhitenModel,
     # Clustering metrics
     adjusted_rand_index,
-    calinski_harabasz_score,
     compute_hubness,
     continuity,
     cosine_similarity,
     # Basic metrics
     cosine_similarity_matrix,
     coverage_at_k,
+    davies_bouldin_score,
     # Geometry and hubness metrics
     effective_rank,
     l2_normalize_rows,
@@ -101,8 +101,8 @@ __all__ = [
     "adjusted_rand_index",
     "normalized_mutual_info",
     "purity_score",
-    "calinski_harabasz_score",
     "silhouette_score",
+    "davies_bouldin_score",
     # Geometry and hubness metrics
     "effective_rank",
     "similarity_to_global_mean",

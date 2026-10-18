@@ -1,3 +1,4 @@
+use crate::core::metrics::distance::{DistanceMetric, distance};
 use crate::errors::PreprocessingError;
 use ndarray::Array2;
 use rayon::prelude::*;
@@ -9,29 +10,23 @@ use rayon::prelude::*;
 /// (rank 1 = closest). Points are excluded from their own neighbourhood (`i == j`).
 ///
 /// The outer loop is parallelised with Rayon.
-fn knn_ranks(embeddings: &Array2<f32>) -> Vec<Vec<usize>> {
+fn knn_ranks(embeddings: &Array2<f32>, metric: DistanceMetric) -> Vec<Vec<usize>> {
     let n = embeddings.nrows();
-    let d = embeddings.ncols();
+    let prepared = metric.prepare(embeddings);
 
     (0..n)
         .into_par_iter()
         .with_min_len(100)
         .map(|i| {
-            let row_i = embeddings.row(i);
+            let row_i = prepared.row(i);
             let mut ranks_i = vec![0usize; n];
 
-            // Compute squared Euclidean distances to all other points.
+            // Compute distances to all other points using the selected geometry.
             let mut dists: Vec<(usize, f32)> = (0..n)
                 .filter(|&j| j != i)
                 .map(|j| {
-                    let row_j = embeddings.row(j);
-                    let dist_sq = (0..d)
-                        .map(|f| {
-                            let diff = row_i[f] - row_j[f];
-                            diff * diff
-                        })
-                        .sum::<f32>();
-                    (j, dist_sq)
+                    let row_j = prepared.row(j);
+                    (j, distance(row_i, row_j, metric))
                 })
                 .collect();
 
@@ -145,12 +140,14 @@ pub fn trustworthiness(
     high_dim: &Array2<f32>,
     low_dim: &Array2<f32>,
     k: usize,
+    high_metric: DistanceMetric,
+    low_metric: DistanceMetric,
 ) -> Result<f32, PreprocessingError> {
     let n = validate_shapes(high_dim, low_dim)?;
     validate_projection_k(n, k)?;
 
-    let ranks_high = knn_ranks(high_dim);
-    let ranks_low = knn_ranks(low_dim);
+    let ranks_high = knn_ranks(high_dim, high_metric);
+    let ranks_low = knn_ranks(low_dim, low_metric);
     Ok(trustworthiness_from_ranks(&ranks_high, &ranks_low, n, k))
 }
 
@@ -165,12 +162,14 @@ pub fn continuity(
     high_dim: &Array2<f32>,
     low_dim: &Array2<f32>,
     k: usize,
+    high_metric: DistanceMetric,
+    low_metric: DistanceMetric,
 ) -> Result<f32, PreprocessingError> {
     let n = validate_shapes(high_dim, low_dim)?;
     validate_projection_k(n, k)?;
 
-    let ranks_high = knn_ranks(high_dim);
-    let ranks_low = knn_ranks(low_dim);
+    let ranks_high = knn_ranks(high_dim, high_metric);
+    let ranks_low = knn_ranks(low_dim, low_metric);
     Ok(continuity_from_ranks(&ranks_high, &ranks_low, n, k))
 }
 
@@ -190,6 +189,8 @@ pub fn projection_quality(
     high_dim: &Array2<f32>,
     low_dim: &Array2<f32>,
     k_values: &[usize],
+    high_metric: DistanceMetric,
+    low_metric: DistanceMetric,
 ) -> Result<Vec<(usize, f32, f32)>, PreprocessingError> {
     let n = validate_shapes(high_dim, low_dim)?;
     if k_values.is_empty() {
@@ -199,8 +200,8 @@ pub fn projection_quality(
         validate_projection_k(n, k)?;
     }
 
-    let ranks_high = knn_ranks(high_dim);
-    let ranks_low = knn_ranks(low_dim);
+    let ranks_high = knn_ranks(high_dim, high_metric);
+    let ranks_low = knn_ranks(low_dim, low_metric);
 
     Ok(k_values
         .iter()
@@ -229,7 +230,14 @@ mod tests {
             [4.0, 0.0],
             [5.0, 0.0]
         ];
-        let score = trustworthiness(&emb, &emb, 2).unwrap();
+        let score = trustworthiness(
+            &emb,
+            &emb,
+            2,
+            DistanceMetric::Euclidean,
+            DistanceMetric::Euclidean,
+        )
+        .unwrap();
         assert!((score - 1.0).abs() < 1e-5, "expected 1.0, got {score}");
     }
 
@@ -242,7 +250,14 @@ mod tests {
             [4.0, 0.0],
             [5.0, 0.0]
         ];
-        let score = continuity(&emb, &emb, 2).unwrap();
+        let score = continuity(
+            &emb,
+            &emb,
+            2,
+            DistanceMetric::Euclidean,
+            DistanceMetric::Euclidean,
+        )
+        .unwrap();
         assert!((score - 1.0).abs() < 1e-5, "expected 1.0, got {score}");
     }
 
@@ -250,15 +265,42 @@ mod tests {
     fn test_invalid_k_returns_error() {
         let emb = array![[1.0f32, 0.0], [2.0, 0.0]];
         // k == n is invalid
-        assert!(trustworthiness(&emb, &emb, 2).is_err());
+        assert!(
+            trustworthiness(
+                &emb,
+                &emb,
+                2,
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn test_degenerate_k_returns_error_instead_of_nan() {
         // n=2, k=1 → normalisation denominator is 0 → must error, not NaN.
         let emb = array![[1.0f32, 0.0], [2.0, 0.0]];
-        assert!(trustworthiness(&emb, &emb, 1).is_err());
-        assert!(continuity(&emb, &emb, 1).is_err());
+        assert!(
+            trustworthiness(
+                &emb,
+                &emb,
+                1,
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean
+            )
+            .is_err()
+        );
+        assert!(
+            continuity(
+                &emb,
+                &emb,
+                1,
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean
+            )
+            .is_err()
+        );
         // n=5, k=3 → denominator is 0 as well (2*5 - 3*3 - 1 = 0).
         let emb5 = array![
             [1.0f32, 0.0],
@@ -267,14 +309,32 @@ mod tests {
             [4.0, 0.0],
             [5.0, 0.0]
         ];
-        assert!(trustworthiness(&emb5, &emb5, 3).is_err());
+        assert!(
+            trustworthiness(
+                &emb5,
+                &emb5,
+                3,
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn test_mismatched_rows_returns_error() {
         let high = array![[1.0f32, 0.0], [2.0, 0.0], [3.0, 0.0]];
         let low = array![[1.0f32, 0.0], [2.0, 0.0]];
-        assert!(trustworthiness(&high, &low, 1).is_err());
+        assert!(
+            trustworthiness(
+                &high,
+                &low,
+                1,
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -295,8 +355,22 @@ mod tests {
             [2.0, 0.0],
             [1.0, 0.0]
         ];
-        let t = trustworthiness(&high, &low, 2).unwrap();
-        let c = continuity(&high, &low, 2).unwrap();
+        let t = trustworthiness(
+            &high,
+            &low,
+            2,
+            DistanceMetric::Cosine,
+            DistanceMetric::Euclidean,
+        )
+        .unwrap();
+        let c = continuity(
+            &high,
+            &low,
+            2,
+            DistanceMetric::Cosine,
+            DistanceMetric::Euclidean,
+        )
+        .unwrap();
         assert!(
             (0.0..=1.0).contains(&t),
             "trustworthiness out of range: {t}"
@@ -322,17 +396,38 @@ mod tests {
             [2.0, 0.0],
             [1.0, 0.0]
         ];
-        let results = projection_quality(&high, &low, &[1, 2, 3]).unwrap();
+        let results = projection_quality(
+            &high,
+            &low,
+            &[1, 2, 3],
+            DistanceMetric::Cosine,
+            DistanceMetric::Euclidean,
+        )
+        .unwrap();
         assert_eq!(results.len(), 3);
         for (k, t, c) in &results {
             assert_eq!(
                 *t,
-                trustworthiness(&high, &low, *k).unwrap(),
+                trustworthiness(
+                    &high,
+                    &low,
+                    *k,
+                    DistanceMetric::Cosine,
+                    DistanceMetric::Euclidean
+                )
+                .unwrap(),
                 "trustworthiness mismatch at k={k}"
             );
             assert_eq!(
                 *c,
-                continuity(&high, &low, *k).unwrap(),
+                continuity(
+                    &high,
+                    &low,
+                    *k,
+                    DistanceMetric::Cosine,
+                    DistanceMetric::Euclidean
+                )
+                .unwrap(),
                 "continuity mismatch at k={k}"
             );
         }
@@ -341,7 +436,16 @@ mod tests {
     #[test]
     fn test_projection_quality_rejects_empty_k_values() {
         let emb = array![[1.0f32, 0.0], [2.0, 0.0], [3.0, 0.0]];
-        assert!(projection_quality(&emb, &emb, &[]).is_err());
+        assert!(
+            projection_quality(
+                &emb,
+                &emb,
+                &[],
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -353,6 +457,15 @@ mod tests {
             [4.0, 0.0],
             [5.0, 0.0]
         ];
-        assert!(projection_quality(&emb, &emb, &[1, 3]).is_err());
+        assert!(
+            projection_quality(
+                &emb,
+                &emb,
+                &[1, 3],
+                DistanceMetric::Cosine,
+                DistanceMetric::Euclidean,
+            )
+            .is_err()
+        );
     }
 }

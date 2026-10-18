@@ -24,7 +24,7 @@ def _identity_5x2():
 class TestTrustworthiness:
     def test_perfect_projection_returns_one(self):
         emb = _identity_5x2()
-        score = trustworthiness(emb, emb, k=2)
+        score = trustworthiness(emb, emb, k=2, high_metric="euclidean", low_metric="euclidean")
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
     def test_score_in_unit_interval(self):
@@ -67,14 +67,14 @@ class TestTrustworthiness:
         import numpy as np
 
         emb = np.array(_identity_5x2(), dtype=np.float32)
-        score = trustworthiness(emb, emb, k=2)
+        score = trustworthiness(emb, emb, k=2, high_metric="euclidean", low_metric="euclidean")
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
     def test_default_k_is_10(self):
         """Calling without explicit k should not raise when k=10 is in-domain."""
         # Need 2n - 3*10 - 1 > 0 → n >= 16.
         emb = [[float(i), 0.0] for i in range(31)]
-        score = trustworthiness(emb, emb)
+        score = trustworthiness(emb, emb, high_metric="euclidean", low_metric="euclidean")
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
 
@@ -86,7 +86,7 @@ class TestTrustworthiness:
 class TestContinuity:
     def test_perfect_projection_returns_one(self):
         emb = _identity_5x2()
-        score = continuity(emb, emb, k=2)
+        score = continuity(emb, emb, k=2, high_metric="euclidean", low_metric="euclidean")
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
     def test_score_in_unit_interval(self):
@@ -116,12 +116,12 @@ class TestContinuity:
         import numpy as np
 
         emb = np.array(_identity_5x2(), dtype=np.float32)
-        score = continuity(emb, emb, k=2)
+        score = continuity(emb, emb, k=2, high_metric="euclidean", low_metric="euclidean")
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
     def test_default_k_is_10(self):
         emb = [[float(i), 0.0] for i in range(31)]
-        score = continuity(emb, emb)
+        score = continuity(emb, emb, high_metric="euclidean", low_metric="euclidean")
         assert math.isclose(score, 1.0, abs_tol=1e-5)
 
 
@@ -142,7 +142,13 @@ class TestProjectionQuality:
 
     def test_perfect_projection(self):
         emb = [[float(i), 0.0] for i in range(10)]
-        results = projection_quality(emb, emb, k_values=[2, 4])
+        results = projection_quality(
+            emb,
+            emb,
+            k_values=[2, 4],
+            high_metric="euclidean",
+            low_metric="euclidean",
+        )
         for _, t, c in results:
             assert math.isclose(t, 1.0, abs_tol=1e-5)
             assert math.isclose(c, 1.0, abs_tol=1e-5)

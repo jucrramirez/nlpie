@@ -28,7 +28,7 @@ def _report(
         r.intrinsic = IntrinsicMetrics(mean=0.5, std=0.1, min=0.2, max=0.8)
     if clustering:
         r.clustering = ClusteringMetrics(
-            ari=0.7, nmi=0.6, purity=0.8, silhouette=0.4, calinski_harabasz=100.0
+            ari=0.7, nmi=0.6, purity=0.8, silhouette=0.4, davies_bouldin=0.4
         )
     if geometry:
         r.geometry = GeometryMetrics(

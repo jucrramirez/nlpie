@@ -59,33 +59,45 @@ def spearman_correlation(x: list[float], y: list[float]) -> float: ...
 def adjusted_rand_index(labels_true: list[int], labels_pred: list[int]) -> float: ...
 def normalized_mutual_info(labels_true: list[int], labels_pred: list[int]) -> float: ...
 def purity_score(labels_true: list[int], labels_pred: list[int]) -> float: ...
-def calinski_harabasz_score(
-    embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]], labels: list[int]
+def davies_bouldin_score(
+    embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]],
+    labels: list[int],
+    metric: str = "cosine",
 ) -> float: ...
 def silhouette_score(
-    embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]], labels: list[int]
+    embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]],
+    labels: list[int],
+    metric: str = "cosine",
 ) -> float: ...
 def effective_rank(embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]]) -> float: ...
 def similarity_to_global_mean(
     embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]],
 ) -> list[float]: ...
 def compute_hubness(
-    embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]], k: int = 5
+    embeddings: np.ndarray[tuple[int, int], np.dtype[np.float32]],
+    k: int = 5,
+    metric: str = "cosine",
 ) -> tuple[list[int], float]: ...
 def trustworthiness(
     high_dim: np.ndarray[tuple[int, int], np.dtype[np.float32]],
     low_dim: np.ndarray[tuple[int, int], np.dtype[np.float32]],
     k: int = 10,
+    high_metric: str = "cosine",
+    low_metric: str = "euclidean",
 ) -> float: ...
 def continuity(
     high_dim: np.ndarray[tuple[int, int], np.dtype[np.float32]],
     low_dim: np.ndarray[tuple[int, int], np.dtype[np.float32]],
     k: int = 10,
+    high_metric: str = "cosine",
+    low_metric: str = "euclidean",
 ) -> float: ...
 def projection_quality(
     high_dim: np.ndarray[tuple[int, int], np.dtype[np.float32]],
     low_dim: np.ndarray[tuple[int, int], np.dtype[np.float32]],
     k_values: list[int],
+    high_metric: str = "cosine",
+    low_metric: str = "euclidean",
 ) -> list[tuple[int, float, float]]: ...
 def recall_at_k(retrieved: list[int], relevant: list[int], k: int) -> float: ...
 def precision_at_k(retrieved: list[int], relevant: list[int], k: int) -> float: ...
