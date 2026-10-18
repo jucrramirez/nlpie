@@ -55,11 +55,11 @@ mod python_module {
             m
         )?)?;
         m.add_function(wrap_pyfunction!(bindings::metrics::purity_score, m)?)?;
+        m.add_function(wrap_pyfunction!(bindings::metrics::silhouette_score, m)?)?;
         m.add_function(wrap_pyfunction!(
-            bindings::metrics::calinski_harabasz_score,
+            bindings::metrics::davies_bouldin_score,
             m
         )?)?;
-        m.add_function(wrap_pyfunction!(bindings::metrics::silhouette_score, m)?)?;
 
         m.add_function(wrap_pyfunction!(bindings::metrics::effective_rank, m)?)?;
         m.add_function(wrap_pyfunction!(

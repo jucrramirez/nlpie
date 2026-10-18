@@ -28,6 +28,10 @@ pub enum PreprocessingError {
         n_samples: usize,
     },
 
+    /// Returned when a metric name is not supported by a distance-based API.
+    #[error("unsupported distance metric {metric:?}; expected \"cosine\" or \"euclidean\"")]
+    InvalidMetric { metric: String },
+
     /// Returned when standardizing a column with zero standard deviation, preventing division by zero.
     #[error("cannot standardize column {column}: standard deviation is zero")]
     ZeroStdDev {

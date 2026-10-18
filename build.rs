@@ -13,9 +13,13 @@ fn main() {
             // System OpenBLAS (install: sudo apt-get install libopenblas-dev gfortran).
             // If unavailable, rebuild with `--features openblas-static` instead.
             #[cfg(target_arch = "x86_64")]
-            println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu");
+            {
+                add_linux_blas_search_paths("/usr/lib/x86_64-linux-gnu");
+            }
             #[cfg(target_arch = "aarch64")]
-            println!("cargo:rustc-link-search=/usr/lib/aarch64-linux-gnu");
+            {
+                add_linux_blas_search_paths("/usr/lib/aarch64-linux-gnu");
+            }
 
             println!("cargo:rustc-link-lib=dylib=openblas");
             println!("cargo:rustc-link-lib=dylib=gfortran");
@@ -26,6 +30,21 @@ fn main() {
                 "cargo:warning=No system BLAS linkage is configured on Windows; \
                  build with `--features openblas-static`"
             );
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn add_linux_blas_search_paths(architecture_directory: &str) {
+    println!("cargo:rustc-link-search={architecture_directory}");
+
+    // Debian and Ubuntu package OpenBLAS variants in subdirectories such as
+    // `openblas-pthread`, so the top-level architecture directory alone is
+    // insufficient for the linker to resolve `-lopenblas`.
+    for variant in ["openblas-pthread", "openblas-openmp", "openblas-serial"] {
+        let path = format!("{architecture_directory}/{variant}");
+        if std::path::Path::new(&path).is_dir() {
+            println!("cargo:rustc-link-search={path}");
         }
     }
 }

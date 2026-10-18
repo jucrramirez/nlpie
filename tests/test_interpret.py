@@ -52,7 +52,7 @@ class TestClusteringProvider:
     def test_healthy_clustering_is_info(self):
         report = _report()
         report.clustering = ClusteringMetrics(
-            ari=0.9, nmi=0.9, purity=0.95, silhouette=0.6, calinski_harabasz=300.0
+            ari=0.9, nmi=0.9, purity=0.95, silhouette=0.6, davies_bouldin=0.2
         )
         exps = ClusteringExplanationProvider().explain(report)
         assert exps[0].severity == "info"
@@ -60,7 +60,7 @@ class TestClusteringProvider:
     def test_low_ari_is_critical(self):
         report = _report()
         report.clustering = ClusteringMetrics(
-            ari=0.1, nmi=0.4, purity=0.5, silhouette=0.3, calinski_harabasz=50.0
+            ari=0.1, nmi=0.4, purity=0.5, silhouette=0.3, davies_bouldin=0.8
         )
         exps = ClusteringExplanationProvider().explain(report)
         assert exps[0].severity == "critical"
@@ -69,7 +69,7 @@ class TestClusteringProvider:
     def test_low_silhouette_is_critical(self):
         report = _report()
         report.clustering = ClusteringMetrics(
-            ari=0.6, nmi=0.6, purity=0.7, silhouette=0.05, calinski_harabasz=50.0
+            ari=0.6, nmi=0.6, purity=0.7, silhouette=0.05, davies_bouldin=0.8
         )
         assert ClusteringExplanationProvider().explain(report)[0].severity == "critical"
 

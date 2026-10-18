@@ -90,9 +90,10 @@ class TestEvaluateWithClustering:
         labels = _make_labels(30, 3)
         report, _ = evaluate_embedding_quality(emb, labels=labels, hubness_k=3)
         assert report.clustering is not None
-        assert math.isclose(report.clustering.ari, 1.0, abs_tol=1e-6)
-        assert math.isclose(report.clustering.nmi, 1.0, abs_tol=1e-6)
-        assert math.isclose(report.clustering.purity, 1.0, abs_tol=1e-6)
+        assert report.clustering.ari is None
+        assert report.clustering.nmi is None
+        assert report.clustering.purity is None
+        assert report.clustering.davies_bouldin >= 0.0
 
     def test_clustering_with_pred_labels(self):
         emb = _make_embeddings(30, 4)
@@ -101,6 +102,11 @@ class TestEvaluateWithClustering:
         report, _ = evaluate_embedding_quality(emb, labels=labels, labels_pred=pred, hubness_k=3)
         assert report.clustering is not None
         assert report.clustering.ari < 1.0
+
+    def test_predicted_labels_are_required_for_label_comparison_metrics(self):
+        emb = _make_embeddings(10, 4)
+        with pytest.raises(ValueError, match="labels_pred.*requires.*labels"):
+            evaluate_embedding_quality(emb, labels_pred=[0] * 10, hubness_k=3)
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +135,7 @@ class TestEvaluateWithProjection:
             low_dim=emb,
             projection_k_values=[2],
             hubness_k=3,
+            metric="euclidean",
         )
         assert math.isclose(report.projection[0].trustworthiness, 1.0, abs_tol=1e-4)
         assert math.isclose(report.projection[0].continuity, 1.0, abs_tol=1e-4)
@@ -170,6 +177,17 @@ class TestEvaluateWithRetrieval:
         assert math.isclose(s.ndcg, 1.0)
         assert math.isclose(s.coverage, 1.0)
         assert math.isclose(s.mrr, 1.0)
+
+    def test_mrr_is_cut_off_specific(self):
+        emb = _make_embeddings(10, 4)
+        report, _ = evaluate_embedding_quality(
+            emb,
+            retrieved=[[9, 8, 7, 6, 5, 4]],
+            relevant=[[4]],
+            retrieval_k_values=[1, 5, 6],
+            hubness_k=3,
+        )
+        assert [metric.mrr for metric in report.retrieval] == [0.0, 0.0, 1.0 / 6.0]
 
     def test_retrieval_requires_both_lists(self):
         emb = _make_embeddings(10, 4)
@@ -406,6 +424,7 @@ class TestCompareModels:
             low_dims={"a": low_a, "b": low_b},
             projection_k_values=[2],
             hubness_k=3,
+            metric="euclidean",
         )
         assert math.isclose(reports[0].projection[0].trustworthiness, 1.0, abs_tol=1e-4)
         assert reports[1].projection[0].trustworthiness < 1.0

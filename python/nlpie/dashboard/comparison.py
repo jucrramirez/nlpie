@@ -50,6 +50,7 @@ def _collect_metric_values(
             add("ARI")
             add("NMI")
             add("Silhouette")
+            add("Davies-Bouldin")
         if r.geometry is not None:
             add("Eff-Rank (frac)")
         if r.projection:
@@ -68,6 +69,7 @@ def _collect_metric_values(
             col["ARI"] = r.clustering.ari
             col["NMI"] = r.clustering.nmi
             col["Silhouette"] = r.clustering.silhouette
+            col["Davies-Bouldin"] = r.clustering.davies_bouldin
         if r.geometry is not None and r.n_dims > 0:
             # Normalise to a [0, 1] fraction of the ambient dimension so the
             # unbounded effective rank can share an axis with bounded metrics.

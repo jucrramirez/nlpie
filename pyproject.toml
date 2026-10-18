@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "nlpie"
-version = "0.1.0"
+version = "0.2.0a1"
 description = "A high-performance NLP library for evaluation tasks."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,7 +19,16 @@ dependencies = [
 
 [project.optional-dependencies]
 plotting = ["plotly>=5.18"]
-dev = ["jupyter>=1.1", "pytest>=9.1.1", "pytest-benchmark>=5.1", "pyarrow>=25.0.0"]
+dev = [
+    "jupyter>=1.1",
+    "maturin>=1.13,<2.0",
+    "mypy>=1.16.1",
+    "pylint>=3.3.0",
+    "pyarrow>=25.0.0",
+    "pytest>=9.1.1",
+    "pytest-benchmark>=5.1",
+    "ruff>=0.9.0",
+]
 
 [tool.maturin]
 features = ["extension-module"]
@@ -40,6 +49,31 @@ quote-style = "double"
 python_version = "3.12"
 strict = false
 ignore_missing_imports = true
+
+[tool.pylint.main]
+py-version = "3.12"
+ignore-paths = ["python/examples"]
+
+[tool.pylint.messages_control]
+disable = [
+    "duplicate-code",
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-instance-attributes",
+    "too-many-positional-arguments",
+    "too-many-branches",
+    "too-many-statements",
+    "line-too-long",
+    "unspecified-encoding",
+    "import-outside-toplevel",
+    "protected-access",
+    "use-dict-literal",
+    "invalid-name",
+    "too-few-public-methods",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -3,12 +3,13 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import wraps
+from importlib import import_module
 
 import numpy as np
 
 # Try importing the compiled binary extension module
 try:
-    from . import _nlpie_core
+    _nlpie_core = import_module("._nlpie_core", package=__package__)
 except ImportError as e:
     raise ImportError(
         "Failed to import the compiled native extension '_nlpie_core'. "
@@ -17,7 +18,7 @@ except ImportError as e:
     ) from e
 
 from ._errors import PreprocessingError
-from ._types import MatrixLike, VectorLike
+from ._types import DistanceMetric, MatrixLike, VectorLike
 
 
 @dataclass(frozen=True)
@@ -68,7 +69,7 @@ def _to_matrix(embeddings: MatrixLike) -> np.ndarray:
 
     Supports lists, tuples, and numpy arrays. Empty input is treated as (0, 0).
     """
-    if isinstance(embeddings, (list, tuple)) and len(embeddings) == 0:
+    if isinstance(embeddings, list | tuple) and len(embeddings) == 0:
         return np.empty((0, 0), dtype=np.float32)
     arr = np.asarray(embeddings, dtype=np.float32)
     if arr.ndim != 2:
@@ -81,7 +82,7 @@ def _to_vector(vector: VectorLike) -> list[float]:
     if hasattr(vector, "tolist"):
         vector = vector.tolist()
 
-    if not isinstance(vector, (list, tuple)):
+    if not isinstance(vector, list | tuple):
         raise TypeError("Vector must be a list, tuple, or numpy array")
 
     return [float(x) for x in vector]
@@ -384,15 +385,23 @@ def purity_score(labels_true: Sequence[int], labels_pred: Sequence[int]) -> floa
 
 
 @_wrap_exceptions
-def calinski_harabasz_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
-    """Computes the Calinski-Harabasz index."""
-    return _nlpie_core.calinski_harabasz_score(_to_matrix(embeddings), list(labels))
+def silhouette_score(
+    embeddings: MatrixLike,
+    labels: Sequence[int],
+    metric: DistanceMetric = "cosine",
+) -> float:
+    """Computes the mean Silhouette Coefficient using the selected distance."""
+    return _nlpie_core.silhouette_score(_to_matrix(embeddings), list(labels), metric)
 
 
 @_wrap_exceptions
-def silhouette_score(embeddings: MatrixLike, labels: Sequence[int]) -> float:
-    """Computes the mean Silhouette Coefficient."""
-    return _nlpie_core.silhouette_score(_to_matrix(embeddings), list(labels))
+def davies_bouldin_score(
+    embeddings: MatrixLike,
+    labels: Sequence[int],
+    metric: DistanceMetric = "cosine",
+) -> float:
+    """Computes the Davies–Bouldin index; lower values indicate better clusters."""
+    return _nlpie_core.davies_bouldin_score(_to_matrix(embeddings), list(labels), metric)
 
 
 # =============================================================================
@@ -413,13 +422,17 @@ def similarity_to_global_mean(embeddings: MatrixLike) -> list[float]:
 
 
 @_wrap_exceptions
-def compute_hubness(embeddings: MatrixLike, k: int = 5) -> tuple[list[int], float]:
+def compute_hubness(
+    embeddings: MatrixLike,
+    k: int = 5,
+    metric: DistanceMetric = "cosine",
+) -> tuple[list[int], float]:
     """Computes exact K-Nearest Neighbors hubness counts and skewness.
 
     Returns:
         A tuple of (hubness_counts, skewness).
     """
-    return _nlpie_core.compute_hubness(_to_matrix(embeddings), k)
+    return _nlpie_core.compute_hubness(_to_matrix(embeddings), k, metric)
 
 
 # =============================================================================
@@ -432,6 +445,8 @@ def trustworthiness(
     high_dim: MatrixLike,
     low_dim: MatrixLike,
     k: int = 10,
+    high_metric: DistanceMetric = "cosine",
+    low_metric: DistanceMetric = "euclidean",
 ) -> float:
     """Computes the trustworthiness of a low-dimensional projection.
 
@@ -449,7 +464,9 @@ def trustworthiness(
     Raises:
         PreprocessingError: If shapes are inconsistent or ``k`` is invalid.
     """
-    return _nlpie_core.trustworthiness(_to_matrix(high_dim), _to_matrix(low_dim), k)
+    return _nlpie_core.trustworthiness(
+        _to_matrix(high_dim), _to_matrix(low_dim), k, high_metric, low_metric
+    )
 
 
 @_wrap_exceptions
@@ -457,6 +474,8 @@ def continuity(
     high_dim: MatrixLike,
     low_dim: MatrixLike,
     k: int = 10,
+    high_metric: DistanceMetric = "cosine",
+    low_metric: DistanceMetric = "euclidean",
 ) -> float:
     """Computes the continuity of a low-dimensional projection.
 
@@ -474,7 +493,9 @@ def continuity(
     Raises:
         PreprocessingError: If shapes are inconsistent or ``k`` is invalid.
     """
-    return _nlpie_core.continuity(_to_matrix(high_dim), _to_matrix(low_dim), k)
+    return _nlpie_core.continuity(
+        _to_matrix(high_dim), _to_matrix(low_dim), k, high_metric, low_metric
+    )
 
 
 @_wrap_exceptions
@@ -482,6 +503,8 @@ def projection_quality(
     high_dim: MatrixLike,
     low_dim: MatrixLike,
     k_values: Sequence[int],
+    high_metric: DistanceMetric = "cosine",
+    low_metric: DistanceMetric = "euclidean",
 ) -> list[tuple[int, float, float]]:
     """Computes trustworthiness and continuity for several ``k`` values in one pass.
 
@@ -501,7 +524,13 @@ def projection_quality(
         PreprocessingError: If shapes are inconsistent, ``k_values`` is empty,
             or any ``k`` is outside the valid domain.
     """
-    return _nlpie_core.projection_quality(_to_matrix(high_dim), _to_matrix(low_dim), list(k_values))
+    return _nlpie_core.projection_quality(
+        _to_matrix(high_dim),
+        _to_matrix(low_dim),
+        list(k_values),
+        high_metric,
+        low_metric,
+    )
 
 
 # =============================================================================

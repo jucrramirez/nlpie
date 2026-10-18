@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from .thresholds import (
     ARI_CRITICAL,
     ARI_WARNING,
+    DAVIES_BOULDIN_CRITICAL,
+    DAVIES_BOULDIN_WARNING,
     EFFECTIVE_RANK_CRITICAL_FRAC,
     EFFECTIVE_RANK_WARNING_FRAC,
     HUBNESS_CRITICAL,
@@ -84,18 +86,28 @@ def kpi_cards_data(report) -> list[KpiCard]:
 
     m = getattr(report, "clustering", None)
     if m is not None:
-        cards.append(
-            KpiCard(
-                "ARI",
-                f"{m.ari:.3f}",
-                classify_lower_is_worse(m.ari, ARI_CRITICAL, ARI_WARNING),
+        if m.ari is not None:
+            cards.append(
+                KpiCard(
+                    "ARI",
+                    f"{m.ari:.3f}",
+                    classify_lower_is_worse(m.ari, ARI_CRITICAL, ARI_WARNING),
+                )
             )
-        )
         cards.append(
             KpiCard(
                 "Silhouette",
                 f"{m.silhouette:.3f}",
                 classify_lower_is_worse(m.silhouette, SILHOUETTE_CRITICAL, SILHOUETTE_WARNING),
+            )
+        )
+        cards.append(
+            KpiCard(
+                "Davies-Bouldin",
+                f"{m.davies_bouldin:.3f}",
+                classify_higher_is_worse(
+                    m.davies_bouldin, DAVIES_BOULDIN_CRITICAL, DAVIES_BOULDIN_WARNING
+                ),
             )
         )
 

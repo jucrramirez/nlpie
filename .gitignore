@@ -16,7 +16,7 @@ wheels/
 
 # IDE
 .vscode
-/.agents 
+/.agents
 
 # Local files
 .tasks/

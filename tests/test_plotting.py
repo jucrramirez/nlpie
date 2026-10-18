@@ -202,9 +202,10 @@ class TestFullDashboard:
 
         report = EmbeddingQualityReport(
             model_name="test",
-            n_samples=100,
-            n_dims=64,
+            n_samples=2,
+            n_dims=2,
             intrinsic=IntrinsicMetrics(mean=0.5, std=0.1, min=0.2, max=0.8),
+            pairwise_similarities=[0.5],
         )
         result = plot_quality_report(report)
         import plotly.graph_objects as go
@@ -214,6 +215,9 @@ class TestFullDashboard:
         assert isinstance(result.charts, list)
         for _, fig in result.charts:
             assert isinstance(fig, go.Figure)
+        for fig in [result.kpi, *(fig for _, fig in result.charts)]:
+            assert fig.layout.paper_bgcolor == "#ffffff"
+            assert fig.layout.plot_bgcolor == "#ffffff"
         assert result.story is None
 
     def test_full_dashboard_empty_report(self):
@@ -290,6 +294,9 @@ class TestNewPlotTypes:
         import plotly.graph_objects as go
 
         assert isinstance(fig, go.Figure)
+        assert fig.layout.template.layout.paper_bgcolor == "white"
+        assert fig.layout.paper_bgcolor == "#ffffff"
+        assert fig.layout.plot_bgcolor == "#ffffff"
 
     def test_silhouette_plot(self):
         from nlpie.dashboard import plot_silhouette

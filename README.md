@@ -6,11 +6,11 @@
 
 > A fast, Rust-based library for evaluating, visualizing, and interpreting NLP data representations.
 
-![Status: WIP](https://img.shields.io/badge/Status-WIP%20👷🏽♂️-yellow)
+![Status: 0.2.0a1](https://img.shields.io/badge/Status-0.2.0a1%20alpha-orange)
 
 ## 📖 Overview
 
-While the initial scope of this project is evaluating and visualizing common NLP data representations, the real magic lies in **interpretation**. 
+While the initial scope of this project is evaluating and visualizing common NLP data representations, the real magic lies in **interpretation**.
 
 This tool is designed to make it easier to inspect these representations, extract actionable insights, and act as a lightning-fast preprocessor to get your data ready for downstream tasks.
 
@@ -18,17 +18,17 @@ This tool is designed to make it easier to inspect these representations, extrac
 
 I'm not trying to reinvent the wheel. I built this primarily as a personal daily-driver tool, mostly because I'm pretty sure young Manuel would have deeply appreciated having something like this back in the day.
 
-I'm leaving this repository public to open the doors for community feedback, new ideas, and overall improvements. 
+I'm leaving this repository public to open the doors for community feedback, new ideas, and overall improvements.
 
 ## 🎤 The Hannah Montana Philosophy
 
-Another personal goal here is to learn a new language. I chose Rust because I wanted to get the best of both worlds (as Hannah Montana wisely said): 
+Another personal goal here is to learn a new language. I chose Rust because I wanted to get the best of both worlds (as Hannah Montana wisely said):
 - The **ease of use** of Python 🐍
 - The **raw performance** of Rust 🦀
 
 ## ⚠️ Disclaimer
 
-As I mentioned, I am actively learning how to program in Rust while building this. Please don't judge me if looking at the source code makes your eyes start bleeding :'( 
+As I mentioned, I am actively learning how to program in Rust while building this. Please don't judge me if looking at the source code makes your eyes start bleeding :'(
 
 Constructive feedback, pull requests, and band-aids for your eyes are always welcome!
 
@@ -133,6 +133,21 @@ uv sync --all-extras              # Install all extras at once
 
 > **Note:** `uv sync` synchronises the environment with the lock file. Packages installed manually via `uv pip install` will be removed. Always use `uv sync --extra <name>` to include optional dependencies.
 
+#### Install pre-commit hooks
+
+Install `pre-commit` as a user-level tool, then register the repository hooks:
+
+```bash
+uv tool install pre-commit
+pre-commit install
+```
+
+Run all configured checks manually when needed:
+
+```bash
+pre-commit run --all-files
+```
+
 If you want to run the project inside the managed environment:
 
 ```bash
@@ -199,6 +214,14 @@ Available notebooks:
 - If the native module does not rebuild after changing Rust code, rerun `uv run maturin develop`.
 - The package name is `nlpie`, but the compiled Rust extension is configured as `nlpie._nlpie_core`, so imports should match that layout.
 - The project is still a WIP, so APIs and structure may change as the implementation evolves.
+- Version `0.2.0a1` is an alpha pre-release with intentional metric API changes.
+- NLP embedding metrics use cosine distance by default and normalize rows internally for cosine calculations.
+  Projection metrics use cosine distance for the high-dimensional embedding space and Euclidean distance for
+  low-dimensional coordinates by default.
+- Clustering reports provide cosine Silhouette and cosine Davies–Bouldin scores. Calinski–Harabasz was removed
+  because its Euclidean centroid assumptions do not match the documented directional embedding use case.
+- Supplying only `labels` computes geometry-based clustering metrics. ARI, NMI, and purity are unavailable until
+  `labels_pred` is supplied.
 
 ## 📦 Example usage
 
@@ -258,7 +281,15 @@ extension on your machine, so you need:
 - **A BLAS/LAPACK provider** for `ndarray-linalg`:
   - **macOS:** nothing to do — the build links the native Accelerate framework.
   - **Linux:** `sudo apt-get install libopenblas-dev gfortran`
-  - **Windows / minimal Linux:** build with the statically compiled fallback:
+  - **Windows:** install OpenBLAS with Vcpkg and set `VCPKG_ROOT`, then build
+    with the system backend:
+
+    ```powershell
+    vcpkg install openblas --triplet x64-windows-static-md
+    uv run maturin develop --features extension-module,ndarray-linalg/openblas-system
+    ```
+
+  - **Minimal Linux:** build with the statically compiled fallback:
 
     ```bash
     uv run maturin develop --features extension-module,openblas-static
@@ -268,3 +299,19 @@ extension on your machine, so you need:
 
 If the native module does not rebuild after changing Rust code, rerun
 `uv run maturin develop`.
+
+### Running CI and Code Quality Checks Locally
+
+You can run the full CI suite locally (the exact same checks executed in GitHub Actions):
+
+```bash
+make ci
+# or directly:
+./scripts/run_ci.sh
+```
+
+Individual targets:
+- `make lint` – runs Ruff, Mypy, Pylint, Cargo fmt, and Clippy
+- `make format` – auto-formats Python and Rust files
+- `make test` – runs Python and Rust test suites
+- `make audit` – scans Python and Rust dependencies for security advisories

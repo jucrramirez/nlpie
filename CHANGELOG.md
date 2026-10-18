@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Windows CI now configures Vcpkg and uses the matching static OpenBLAS triplet without conflicting system/static Cargo features.
+
+## [0.2.0a1] - 2026-10-18
+
+### Added
+- Cosine distance support for clustering, hubness, and projection metrics, with cosine defaults for high-dimensional NLP embeddings.
+- Cosine Davies–Bouldin clustering score and report output.
+
+### Changed
+- Projection metrics use cosine distance for high-dimensional embeddings and Euclidean distance for low-dimensional coordinates by default.
+- Clustering reports leave ARI, NMI, and purity unavailable until predicted labels are supplied.
+- Report-level MRR is now calculated independently at every requested cutoff.
+
+### Removed
+- Calinski–Harabasz scoring from the public API and quality report because its Euclidean centroid assumptions do not match the documented directional NLP embedding use case.
+
+### Fixed
+- Hubness, silhouette, trustworthiness, and continuity no longer use raw Euclidean geometry by default on unnormalized NLP embeddings.
+- Clustering reports no longer compare ground-truth labels with themselves when predictions are missing.
+
 ### Added
 - **`Dashboard` dataclass:** `full_dashboard()` and `plot_quality_report()` now return a `Dashboard` (figures + titles with `.show()` / `.write_html()`), replacing the old 3-tuple.
 - **`nlpie/thresholds.py`:** single source of truth for all severity breakpoints, shared by interpretation providers and KPI cards.

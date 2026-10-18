@@ -40,9 +40,9 @@ from dataclasses import dataclass, field
 from nlpie._api import (
     _to_matrix,
     adjusted_rand_index,
-    calinski_harabasz_score,
     compute_hubness,
     coverage_at_k,
+    davies_bouldin_score,
     effective_rank,
     mean_reciprocal_rank,
     ndcg_at_k,
@@ -55,7 +55,7 @@ from nlpie._api import (
     silhouette_score,
     similarity_to_global_mean,
 )
-from nlpie._types import MatrixLike
+from nlpie._types import DistanceMetric, MatrixLike
 from nlpie.interpret import ExplanationRegistry, InterpretationReport
 
 # ---------------------------------------------------------------------------
@@ -80,18 +80,23 @@ class IntrinsicMetrics:
 
 @dataclass(frozen=True)
 class ClusteringMetrics:
-    ari: float
-    nmi: float
-    purity: float
+    ari: float | None
+    nmi: float | None
+    purity: float | None
     silhouette: float
-    calinski_harabasz: float
+    davies_bouldin: float
 
     def __str__(self) -> str:
+        comparison = (
+            f"  ARI={self.ari:.4f}  NMI={self.nmi:.4f}  Purity={self.purity:.4f}"
+            if self.ari is not None and self.nmi is not None and self.purity is not None
+            else "  ARI=N/A  NMI=N/A  Purity=N/A"
+        )
         return (
             "Clustering\n"
-            f"  ARI={self.ari:.4f}  NMI={self.nmi:.4f}  Purity={self.purity:.4f}\n"
-            f"  Silhouette={self.silhouette:.4f}  "
-            f"Calinski-Harabasz={self.calinski_harabasz:.2f}"
+            f"{comparison}\n"
+            f"  Silhouette (cosine)={self.silhouette:.4f}  "
+            f"Davies-Bouldin (cosine)={self.davies_bouldin:.4f}"
         )
 
 
@@ -203,33 +208,36 @@ def _compute_intrinsic(
 
 
 def _compute_clustering(
-    embeddings_matrix: list[list[float]],
+    embeddings_matrix: MatrixLike,
     labels: list[int],
     labels_pred: list[int] | None,
+    metric: DistanceMetric,
 ) -> ClusteringMetrics:
-    pred = labels_pred if labels_pred is not None else labels
-    ari = adjusted_rand_index(labels, pred)
-    nmi = normalized_mutual_info(labels, pred)
-    purity = purity_score(labels, pred)
-    sil = silhouette_score(embeddings_matrix, labels)
-    ch = calinski_harabasz_score(embeddings_matrix, labels)
+    ari = nmi = purity = None
+    if labels_pred is not None:
+        ari = adjusted_rand_index(labels, labels_pred)
+        nmi = normalized_mutual_info(labels, labels_pred)
+        purity = purity_score(labels, labels_pred)
+    sil = silhouette_score(embeddings_matrix, labels, metric)
+    db = davies_bouldin_score(embeddings_matrix, labels, metric)
     return ClusteringMetrics(
         ari=ari,
         nmi=nmi,
         purity=purity,
         silhouette=sil,
-        calinski_harabasz=ch,
+        davies_bouldin=db,
     )
 
 
 def _compute_geometry(
-    embeddings_matrix: list[list[float]],
+    embeddings_matrix: MatrixLike,
     hubness_k: int,
+    metric: DistanceMetric,
 ) -> tuple[GeometryMetrics, list[int], list[float]]:
     eff_rank = effective_rank(embeddings_matrix)
     sims = similarity_to_global_mean(embeddings_matrix)
     mean_sim = sum(sims) / len(sims) if sims else 0.0
-    counts, skewness = compute_hubness(embeddings_matrix, hubness_k)
+    counts, skewness = compute_hubness(embeddings_matrix, hubness_k, metric)
     return (
         GeometryMetrics(
             effective_rank=eff_rank,
@@ -294,6 +302,8 @@ def evaluate_embedding_quality(
     labels: Sequence[int] | None = None,
     labels_pred: Sequence[int] | None = None,
     hubness_k: int = 5,
+    metric: DistanceMetric = "cosine",
+    projection_low_metric: DistanceMetric = "euclidean",
     low_dim: MatrixLike | None = None,
     projection_k_values: Sequence[int] = (5, 10, 20),
     retrieved: Sequence[Sequence[int]] | None = None,
@@ -306,6 +316,17 @@ def evaluate_embedding_quality(
     n_dims = len(emb_mat[0]) if n_samples > 0 else 0
 
     _validate_inputs(n_samples, n_dims, hubness_k, low_dim, projection_k_values)
+    if labels_pred is not None and labels is None:
+        raise ValueError("`labels_pred` requires `labels` ground-truth labels.")
+    if labels is not None and len(labels) != n_samples:
+        raise ValueError(
+            f"labels has {len(labels)} values but embeddings has {n_samples}; they must match."
+        )
+    if labels_pred is not None and len(labels_pred) != n_samples:
+        raise ValueError(
+            f"labels_pred has {len(labels_pred)} values but embeddings has "
+            f"{n_samples}; they must match."
+        )
 
     report = EmbeddingQualityReport(
         model_name=model_name,
@@ -317,7 +338,7 @@ def evaluate_embedding_quality(
     report.intrinsic = intrinsic
     report.pairwise_similarities = pairwise
 
-    geometry, hubness_counts, sim_to_mean = _compute_geometry(emb_mat, hubness_k)
+    geometry, hubness_counts, sim_to_mean = _compute_geometry(emb_mat, hubness_k, metric)
     report.geometry = geometry
     report.hubness_counts = hubness_counts
     report.sim_to_mean = sim_to_mean
@@ -325,13 +346,19 @@ def evaluate_embedding_quality(
     if labels is not None:
         int_labels = [int(label) for label in labels]
         int_pred = [int(label) for label in labels_pred] if labels_pred is not None else None
-        report.clustering = _compute_clustering(emb_mat, int_labels, int_pred)
+        report.clustering = _compute_clustering(emb_mat, int_labels, int_pred, metric)
 
     if low_dim is not None:
         low_mat = _to_matrix(low_dim)
         # One Rust pass: both k-NN rank matrices are built once and reused
         # for every k value.
-        for k, t, c in projection_quality(emb_mat, low_mat, projection_k_values):
+        for k, t, c in projection_quality(
+            emb_mat,
+            low_mat,
+            projection_k_values,
+            high_metric=metric,
+            low_metric=projection_low_metric,
+        ):
             report.projection.append(ProjectionMetrics(k=k, trustworthiness=t, continuity=c))
 
     if retrieved is not None or relevant is not None:
@@ -352,12 +379,12 @@ def evaluate_embedding_quality(
         rel_lists = [list(r) for r in relevant]
         n_queries = len(ret_lists)
 
-        mrr_values = [mean_reciprocal_rank(ret_lists[i], rel_lists[i]) for i in range(n_queries)]
-        mean_mrr = _mean(mrr_values)
-
         for k in retrieval_k_values:
             recall_vals = [recall_at_k(ret_lists[i], rel_lists[i], k) for i in range(n_queries)]
             prec_vals = [precision_at_k(ret_lists[i], rel_lists[i], k) for i in range(n_queries)]
+            mrr_values = [
+                mean_reciprocal_rank(ret_lists[i][:k], rel_lists[i]) for i in range(n_queries)
+            ]
             ndcg_vals = [ndcg_at_k(ret_lists[i], rel_lists[i], k) for i in range(n_queries)]
             cov = coverage_at_k(ret_lists, rel_lists, k)
 
@@ -366,7 +393,7 @@ def evaluate_embedding_quality(
                     k=k,
                     recall=_mean(recall_vals),
                     precision=_mean(prec_vals),
-                    mrr=mean_mrr,
+                    mrr=_mean(mrr_values),
                     ndcg=_mean(ndcg_vals),
                     coverage=cov,
                 )
@@ -382,6 +409,8 @@ def compare_models(
     labels: Sequence[int] | None = None,
     labels_pred: Sequence[int] | None = None,
     hubness_k: int = 5,
+    metric: DistanceMetric = "cosine",
+    projection_low_metric: DistanceMetric = "euclidean",
     low_dims: dict[str, MatrixLike] | None = None,
     projection_k_values: Sequence[int] = (5, 10, 20),
     retrieved: dict[str, Sequence[Sequence[int]]] | None = None,
@@ -398,6 +427,8 @@ def compare_models(
             labels=labels,
             labels_pred=labels_pred,
             hubness_k=hubness_k,
+            metric=metric,
+            projection_low_metric=projection_low_metric,
             low_dim=low_dim,
             projection_k_values=projection_k_values,
             retrieved=ret,

@@ -17,11 +17,12 @@ Example usage::
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
-from nlpie._api import MatrixLike, _to_matrix, trustworthiness, continuity
+from nlpie._api import MatrixLike, _to_matrix, continuity, trustworthiness
 from nlpie._errors import PreprocessingError
+from nlpie._types import DistanceMetric
 from nlpie.metrics.quality import ProjectionMetrics
 
 
@@ -51,6 +52,8 @@ def evaluate_projection(
     high_dim: MatrixLike,
     low_dim: MatrixLike,
     k_values: Sequence[int] = (5, 10, 20),
+    high_metric: DistanceMetric = "cosine",
+    low_metric: DistanceMetric = "euclidean",
 ) -> ProjectionReport:
     if not k_values:
         raise ValueError("`k_values` must contain at least one value.")
@@ -61,8 +64,8 @@ def evaluate_projection(
     scores: list[ProjectionMetrics] = []
     for k in k_values:
         try:
-            t = trustworthiness(high_mat, low_mat, k)
-            c = continuity(high_mat, low_mat, k)
+            t = trustworthiness(high_mat, low_mat, k, high_metric, low_metric)
+            c = continuity(high_mat, low_mat, k, high_metric, low_metric)
         except PreprocessingError as exc:
             raise PreprocessingError(
                 f"Failed to compute projection metrics for k={k}: {exc}"

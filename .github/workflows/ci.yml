@@ -10,14 +10,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy, rustfmt
       - uses: astral-sh/setup-uv@v5
-      - name: Clippy
-        run: cargo clippy --all-targets --features extension-module -- -D warnings
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libopenblas-dev
+          sudo ldconfig
       - name: Rust fmt
         run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets --features extension-module -- -D warnings
+      - name: Cargo audit
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sync dev dependencies
+        run: uv sync --extra dev --no-install-project
+      - name: Ruff check
+        run: uv run --no-sync ruff check python/ tests/
+      - name: Ruff format check
+        run: uv run --no-sync ruff format --check python/ tests/
+      - name: Mypy type check
+        run: uv run --no-sync mypy python/nlpie tests/
+      - name: Pylint standards check
+        run: uv run --no-sync pylint python/nlpie
 
   test:
     strategy:
@@ -39,21 +62,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gfortran libopenblas-dev
           sudo ldconfig
-      - name: Install toolchain (Windows, for openblas-static)
+      - name: Configure Vcpkg environment (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc-fortran
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-pkg-config
-      - name: Add MSYS2 to PATH (Windows)
-        if: runner.os == 'Windows'
-        run: echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+        shell: pwsh
+        run: |
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $vcpkgRoot -and (Test-Path "C:\vcpkg")) {
+            $vcpkgRoot = "C:\vcpkg"
+          }
+          if (-not $vcpkgRoot) {
+            $vcpkgCommand = Get-Command vcpkg -ErrorAction SilentlyContinue
+            if ($vcpkgCommand) {
+              $vcpkgRoot = Split-Path $vcpkgCommand.Source
+            }
+          }
+          if (-not $vcpkgRoot) {
+            throw "The GitHub-hosted Windows runner did not provide VCPKG_INSTALLATION_ROOT."
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VCPKG_DEFAULT_TRIPLET=x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $vcpkgRoot | Out-File -FilePath $env:GITHUB_PATH -Append
       - name: Install maturin
         run: uv pip install --system maturin
       - name: Sync dependencies (no build — maturin develop handles it)
@@ -63,10 +91,10 @@ jobs:
         run: uv run --no-sync maturin develop
       - name: Install OpenBLAS (Windows, vcpkg)
         if: runner.os == 'Windows'
-        run: vcpkg install openblas:x64-windows-static-md
-      - name: Build Rust extension (Windows, static OpenBLAS via vcpkg)
+        run: vcpkg install openblas --triplet x64-windows-static-md
+      - name: Build Rust extension (Windows, OpenBLAS via vcpkg)
         if: runner.os == 'Windows'
-        run: uv run --no-sync maturin develop --features "extension-module,openblas-static,ndarray-linalg/openblas-system,openblas-src/rustls"
+        run: uv run --no-sync maturin develop --features "extension-module,ndarray-linalg/openblas-system"
       - name: Run Python tests
         run: uv run pytest tests/ -v
       - name: Run Rust tests
