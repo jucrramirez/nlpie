@@ -3,12 +3,13 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import wraps
+from importlib import import_module
 
 import numpy as np
 
 # Try importing the compiled binary extension module
 try:
-    from . import _nlpie_core
+    _nlpie_core = import_module("._nlpie_core", package=__package__)
 except ImportError as e:
     raise ImportError(
         "Failed to import the compiled native extension '_nlpie_core'. "
