@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embedding quality — Model B (Finetuned) — design draft</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-muted: #eef3f8;
+      --ink: #172333;
+      --muted: #5f7185;
+      --subtle: #8a9aac;
+      --line: #d9e3ed;
+      --grid: #e8eef4;
+      --navy: #17324d;
+      --blue: #3976d2;
+      --teal: #168b86;
+      --purple: #7857a8;
+      --amber: #bc7b15;
+      --coral: #c6534b;
+      --green: #2e8060;
+      --shadow: 0 10px 30px rgba(28, 52, 75, .07);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    a { color: var(--blue); }
+    button, summary { font: inherit; }
+
+    .page {
+      width: min(100% - 2 * clamp(1rem, 4vw, 3.5rem), 1440px);
+      margin-inline: auto;
+      padding-block: clamp(1rem, 4vw, 3.5rem) 4rem;
+    }
+    .eyebrow {
+      color: var(--blue);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 920px;
+      margin-bottom: .8rem;
+      color: var(--navy);
+      font-size: clamp(2rem, 5vw, 4.1rem);
+      line-height: 1.03;
+      letter-spacing: -.045em;
+    }
+    h2 {
+      margin-bottom: .45rem;
+      color: var(--navy);
+      font-size: clamp(1.35rem, 2vw, 2rem);
+      letter-spacing: -.025em;
+    }
+    h3 { margin-bottom: .35rem; color: var(--navy); font-size: 1rem; }
+    .lede {
+      max-width: 790px;
+      margin-bottom: 1.35rem;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.4vw, 1.22rem);
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .55rem .8rem;
+      align-items: center;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .pill, .status {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      border-radius: 999px;
+      padding: .35rem .7rem;
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .035em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill { border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+    .status::before { content: ""; width: .48rem; height: .48rem; border-radius: 50%; background: currentColor; }
+    .status.critical { background: #faecea; color: var(--coral); }
+    .status.warning { background: #fff5df; color: var(--amber); }
+    .status.healthy { background: #e8f5ef; color: var(--green); }
+    .status.info { background: #eaf1fc; color: var(--blue); }
+
+    .hero { margin-bottom: clamp(1.3rem, 3vw, 2.4rem); }
+    .panel {
+      margin-top: clamp(1.2rem, 3vw, 2.4rem);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .panel-inner { padding: clamp(1rem, 2.6vw, 2rem); }
+    .section-intro { max-width: 770px; margin-bottom: 1.15rem; color: var(--muted); }
+
+    .verdict {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 1rem;
+      align-items: start;
+      padding: clamp(1rem, 2.5vw, 1.65rem);
+      border: 1px solid #efc3bd;
+      border-left: .45rem solid var(--coral);
+      border-radius: var(--radius);
+      background: #fffaf9;
+    }
+    .verdict-icon {
+      display: grid;
+      width: 2.25rem;
+      height: 2.25rem;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--coral);
+      color: white;
+      font-weight: 900;
+    }
+    .verdict p { max-width: 840px; margin-bottom: 0; color: #62413e; }
+    .verdict strong { display: block; margin-bottom: .25rem; color: var(--navy); }
+    .verdict-stat { text-align: right; }
+    .verdict-stat strong { margin: 0; color: var(--coral); font-size: clamp(1.6rem, 3vw, 2.35rem); line-height: 1; }
+    .verdict-stat span { display: block; color: var(--muted); font-size: .72rem; }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: .8rem;
+    }
+    .metric-card {
+      position: relative;
+      min-width: 0;
+      padding: 1.05rem 1.1rem 1.15rem;
+      border: 1px solid var(--line);
+      border-top: .28rem solid var(--blue);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    .metric-card.healthy { border-top-color: var(--green); }
+    .metric-card.critical { border-top-color: var(--coral); }
+    .metric-card.warning { border-top-color: var(--amber); }
+    .metric-card .label { margin-bottom: .45rem; color: var(--muted); font-size: .76rem; font-weight: 700; }
+    .metric-card .value { margin-bottom: .28rem; color: var(--navy); font-size: clamp(1.7rem, 3vw, 2.3rem); font-weight: 850; letter-spacing: -.04em; }
+    .metric-card p { margin-bottom: 0; color: var(--muted); font-size: .82rem; }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+      gap: .7rem;
+    }
+    .status-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: .7rem;
+      align-items: center;
+      padding: .9rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fbfdff;
+    }
+    .status-row strong { display: block; color: var(--navy); font-size: .9rem; }
+    .status-row small { color: var(--muted); font-size: .78rem; }
+
+    .insights {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+      gap: .8rem;
+      counter-reset: insight;
+    }
+    .insight {
+      counter-increment: insight;
+      position: relative;
+      padding: 1rem 1rem 1rem 3.15rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-muted);
+    }
+    .insight::before {
+      content: counter(insight);
+      position: absolute;
+      top: .95rem;
+      left: 1rem;
+      display: grid;
+      width: 1.55rem;
+      height: 1.55rem;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--navy);
+      color: #fff;
+      font-size: .75rem;
+      font-weight: 800;
+    }
+    .insight p { margin-bottom: 0; color: var(--muted); font-size: .86rem; }
+    .tag {
+      display: inline-block;
+      margin-bottom: .35rem;
+      color: var(--blue);
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .chart-card {
+      min-width: 0;
+      padding: clamp(.85rem, 2vw, 1.25rem);
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #fcfdff;
+    }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-card header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 1rem; align-items: baseline; margin-bottom: .35rem; }
+    .chart-card header h3 { margin-bottom: 0; }
+    .chart-note { margin-bottom: .4rem; color: var(--muted); font-size: .8rem; }
+    .chart-wrap { width: 100%; }
+    .chart-svg { display: block; width: 100%; height: clamp(240px, 33vw, 350px); overflow: visible; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: .45rem .9rem; margin-top: .25rem; color: var(--muted); font-size: .75rem; }
+    .key { display: inline-flex; align-items: center; gap: .35rem; }
+    .key i { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; background: var(--blue); }
+    .key i.teal { background: var(--teal); }
+    .key i.coral { background: var(--coral); }
+    .key i.amber { background: var(--amber); }
+    .key i.purple { background: var(--purple); }
+    .chart-foot { margin: .45rem 0 0; color: var(--subtle); font-size: .72rem; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+    table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .83rem; }
+    th, td { padding: .82rem .9rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--surface-muted); color: var(--muted); font-size: .72rem; letter-spacing: .045em; text-transform: uppercase; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td strong { color: var(--navy); }
+    td.muted { color: var(--muted); }
+
+    .steps { display: grid; gap: .75rem; }
+    .step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: .9rem;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    .step-number {
+      display: grid;
+      width: 1.8rem;
+      height: 1.8rem;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--navy);
+      color: #fff;
+      font-weight: 800;
+    }
+    .step h3 { margin-bottom: .2rem; }
+    .step p { margin-bottom: 0; color: var(--muted); font-size: .87rem; }
+    .stop { margin-top: .45rem !important; color: var(--navy) !important; font-size: .78rem !important; }
+    .stop strong { color: var(--coral); }
+
+    details { border-top: 1px solid var(--line); }
+    summary { cursor: pointer; padding: 1rem 0; color: var(--navy); font-weight: 750; }
+    details p, details li { color: var(--muted); font-size: .84rem; }
+    details ul { margin-top: 0; padding-left: 1.25rem; }
+    .footer-note { margin-top: 2rem; color: var(--subtle); font-size: .75rem; }
+
+    @media (max-width: 780px) {
+      .verdict { grid-template-columns: auto 1fr; }
+      .verdict-stat { grid-column: 2; text-align: left; }
+      .chart-grid { grid-template-columns: 1fr; }
+      .chart-card.wide { grid-column: auto; }
+    }
+    @media (max-width: 480px) {
+      .page { width: min(100% - 2rem, 1440px); }
+      .hero-meta { align-items: flex-start; flex-direction: column; }
+      .chart-svg { height: 280px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">Embedding quality · interpretation-first draft</div>
+      <h1>Model B is structurally coherent, but not retrieval-ready.</h1>
+      <p class="lede">The embedding separates groups and preserves local neighbourhoods well, yet its geometry is highly compressed and nearest-neighbour retrieval is almost empty. Treat retrieval as the release blocker while using the geometry signals to guide the investigation.</p>
+      <div class="hero-meta">
+        <span class="pill">Model B (Finetuned)</span>
+        <span class="pill">300 samples</span>
+        <span class="pill">64 dimensions</span>
+        <span class="pill">Draft report · values from quality_report.json</span>
+      </div>
+    </header>
+
+    <section class="verdict" aria-label="Release readout">
+      <div class="verdict-icon" aria-hidden="true">!</div>
+      <div>
+        <strong>Release readout: needs investigation before downstream search use</strong>
+        <p>Clustering is strong (Silhouette 0.943; Davies–Bouldin 0.056) and projection quality is strong (Trustworthiness 0.902–0.908; Continuity 0.910–0.919). However, maximum Recall@K is only 5% and maximum nDCG is 2.6%, while effective rank is 5.5/64 and hubness skewness is 1.81.</p>
+      </div>
+      <div class="verdict-stat"><strong>5%</strong><span>best Recall@K</span></div>
+    </section>
+
+    <section class="panel" aria-labelledby="summary-heading">
+      <div class="panel-inner">
+        <h2 id="summary-heading">Executive summary</h2>
+        <p class="section-intro">This report separates “the space looks organized” from “the space retrieves the right items.” That distinction matters here: the first is healthy, but the second is not.</p>
+        <div class="card-grid">
+          <article class="metric-card healthy">
+            <div class="label">Local separation</div>
+            <div class="value">0.943</div>
+            <p>Silhouette is high, so points are well separated on average under cosine distance.</p>
+          </article>
+          <article class="metric-card healthy">
+            <div class="label">Projection fidelity</div>
+            <div class="value">0.902–0.919</div>
+            <p>Trustworthiness and continuity remain high at neighbourhood sizes 5 and 10.</p>
+          </article>
+          <article class="metric-card critical">
+            <div class="label">Retrieval outcome</div>
+            <div class="value">0–5%</div>
+            <p>Recall is zero at K=1 and K=3, reaching only 5% at K=5.</p>
+          </article>
+          <article class="metric-card critical">
+            <div class="label">Effective geometry</div>
+            <div class="value">5.5 / 64</div>
+            <p>Only about 8.6% of the ambient dimensions are effectively active.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="status-heading">
+      <div class="panel-inner">
+        <h2 id="status-heading">Quality by question</h2>
+        <p class="section-intro">Use the status to decide what the next chart or experiment should answer. A healthy projection does not compensate for a failing retrieval task.</p>
+        <div class="status-grid">
+          <div class="status-row"><div><strong>Geometry &amp; pathology</strong><small>Effective rank 5.5/64 · hubness 1.81</small></div><span class="status critical">Critical</span></div>
+          <div class="status-row"><div><strong>Clustering structure</strong><small>Silhouette 0.943 · Davies–Bouldin 0.056</small></div><span class="status healthy">Healthy</span></div>
+          <div class="status-row"><div><strong>Projection fidelity</strong><small>Trust 0.902–0.908 · continuity 0.910–0.919</small></div><span class="status healthy">Healthy</span></div>
+          <div class="status-row"><div><strong>Nearest-neighbour retrieval</strong><small>Best Recall@K 0.05 · best nDCG 0.026</small></div><span class="status critical">Critical</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="insights-heading">
+      <div class="panel-inner">
+        <h2 id="insights-heading">What the results mean</h2>
+        <div class="insights">
+          <article class="insight"><span class="tag">Observed gap</span><h3>Retrieval is the decisive failure mode</h3><p>Every retrieval metric is near zero through K=3. The model can form separated groups without placing labelled relevant items near the top of a search result.</p></article>
+          <article class="insight"><span class="tag">Observed geometry</span><h3>The space is compressed and hub-prone</h3><p>Effective rank is 5.5 out of 64 and hubness skewness is 1.81. A small subset of points may be appearing in many neighbour lists, which can distort ranking.</p></article>
+          <article class="insight"><span class="tag">Interpretation</span><h3>Similarity is mixed, not simply uniform</h3><p>The pairwise similarity distribution has a broad negative mode and a distinct high-similarity mode near 0.9. Together with strong clustering, this is consistent with separated groups; it is not, by itself, proof of collapse.</p></article>
+          <article class="insight"><span class="tag">Decision cue</span><h3>Do not optimize the projection first</h3><p>Projection scores are already high. Spend the next diagnostic cycle on the retrieval contract and geometry post-processing before tuning visualization parameters.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="charts-heading">
+      <div class="panel-inner">
+        <h2 id="charts-heading">Evidence at a glance</h2>
+        <p class="section-intro">Charts use the source report’s reviewed values. Exact values remain available in the tables below; marks, labels, and annotations are rendered responsively in the browser.</p>
+        <div class="chart-grid">
+          <article class="chart-card">
+            <header><h3>Effective rank is a small fraction of ambient size</h3><span class="status critical">Critical</span></header>
+            <p class="chart-note">Effective rank 5.5 compared with 64 available dimensions.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="rank-chart" role="img" aria-label="Horizontal comparison of effective rank 5.5 and ambient dimensions 64"></svg></div>
+            <p class="chart-foot">Interpretation: most coordinate directions carry little independent variation.</p>
+          </article>
+
+          <article class="chart-card">
+            <header><h3>Projection preserves local neighbourhoods</h3><span class="status healthy">Healthy</span></header>
+            <p class="chart-note">Higher scores are better; both measures stay above 0.89.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="projection-chart" role="img" aria-label="Line chart showing trustworthiness and continuity at K 5 and K 10"></svg></div>
+            <div class="chart-legend"><span class="key"><i></i>Trustworthiness</span><span class="key"><i class="teal"></i>Continuity</span></div>
+          </article>
+
+          <article class="chart-card wide">
+            <header><h3>Retrieval scores remain near zero through K=5</h3><span class="status critical">Release blocker</span></header>
+            <p class="chart-note">Recall, precision, and nDCG are shown as percentages to make the practical gap visible.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="retrieval-chart" role="img" aria-label="Line chart showing retrieval metrics at K 1, 3, and 5"></svg></div>
+            <div class="chart-legend"><span class="key"><i class="coral"></i>Recall@K</span><span class="key"><i class="amber"></i>Precision@K</span><span class="key"><i class="purple"></i>nDCG@K</span></div>
+            <p class="chart-foot">The library’s retrieval classifier marks maximum Recall@K below 0.30 as critical.</p>
+          </article>
+
+          <article class="chart-card wide">
+            <header><h3>The similarity distribution is bimodal</h3><span class="status info">Context</span></header>
+            <p class="chart-note">44,850 pairwise cosine similarities, binned at 0.1 intervals; the dashed line is the mean.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="similarity-chart" role="img" aria-label="Histogram of pairwise cosine similarities with a negative mode and a high-similarity mode"></svg></div>
+            <p class="chart-foot">Read this with clustering metrics: the high-similarity mode may reflect within-group pairs, while the negative mode may reflect between-group separation.</p>
+          </article>
+
+          <article class="chart-card">
+            <header><h3>Hubness has a long right tail</h3><span class="status critical">Critical</span></header>
+            <p class="chart-note">Point counts by number of neighbour lists in which each point appears; expected mean is K=5.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="hubness-chart" role="img" aria-label="Histogram of hubness counts showing a long right tail to 31 occurrences"></svg></div>
+            <p class="chart-foot">Skewness is 1.814: a few points occur much more often than the expected count.</p>
+          </article>
+
+          <article class="chart-card">
+            <header><h3>Strong clusters do not guarantee search quality</h3><span class="status healthy">Healthy structure</span></header>
+            <p class="chart-note">The contrast is intentional: clustering and projection are strong while retrieval is weak.</p>
+            <div class="chart-wrap"><svg class="chart-svg" id="contrast-chart" role="img" aria-label="Comparison of strong silhouette and projection scores against weak retrieval scores"></svg></div>
+            <p class="chart-foot">This is why the report separates structural quality from downstream task quality.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="table-heading">
+      <div class="panel-inner">
+        <h2 id="table-heading">Metric interpretation</h2>
+        <p class="section-intro">Short explanations are placed beside the values so a reader does not need to know embedding diagnostics in advance.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Metric</th><th>Value</th><th>Status</th><th>How to interpret it</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Effective rank</strong></td><td>5.52 / 64</td><td><span class="status critical">Critical</span></td><td class="muted">The space uses only a small number of effective directions; the remaining dimensions may be redundant or low-signal.</td></tr>
+              <tr><td><strong>Hubness skewness</strong></td><td>1.814 at K=5</td><td><span class="status critical">Critical</span></td><td class="muted">Neighbour occurrences are right-skewed, so a small set of points may dominate nearest-neighbour lists.</td></tr>
+              <tr><td><strong>Silhouette (cosine)</strong></td><td>0.943</td><td><span class="status healthy">Healthy</span></td><td class="muted">Samples are well separated from other groups on average. This supports coherent cluster structure, not necessarily retrieval relevance.</td></tr>
+              <tr><td><strong>Davies–Bouldin (cosine)</strong></td><td>0.056</td><td><span class="status healthy">Healthy</span></td><td class="muted">Lower is better; this indicates compact, separated groups under the evaluated clustering view.</td></tr>
+              <tr><td><strong>Trustworthiness / continuity</strong></td><td>0.897–0.919</td><td><span class="status healthy">Healthy</span></td><td class="muted">The low-dimensional projection preserves local neighbourhood relationships reasonably well.</td></tr>
+              <tr><td><strong>Retrieval at K</strong></td><td>R@5 0.050 · P@5 0.020 · nDCG@5 0.026</td><td><span class="status critical">Critical</span></td><td class="muted">Relevant items are rarely retrieved or ranked near the top. This is the most important downstream limitation in this report.</td></tr>
+              <tr><td><strong>ARI / NMI / Purity</strong></td><td>N/A</td><td><span class="status info">Not measured</span></td><td class="muted">No label-based cluster metrics were available. Do not infer supervised cluster quality from silhouette alone.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="next-heading">
+      <div class="panel-inner">
+        <h2 id="next-heading">Recommended next steps</h2>
+        <p class="section-intro">Start with the earliest check that can distinguish an evaluation problem from a genuine representation problem. Re-run the same metrics after each change so the decision remains comparable.</p>
+        <div class="steps">
+          <article class="step"><div class="step-number">1</div><div><h3>Confirm the retrieval evaluation contract</h3><p>Check positive-pair labels, query/candidate alignment, cosine versus another distance metric, preprocessing, and whether the denominator matches the intended task. Zero Recall@1 and Recall@3 can be a real failure, but they can also expose a mismatch between the embedding and the evaluation setup.</p><p class="stop"><strong>Stop condition:</strong> if the contract is correct and scores stay near zero, treat the retrieval issue as genuine.</p></div></article>
+          <article class="step"><div class="step-number">2</div><div><h3>Run a small geometry post-processing ablation</h3><p>Compare the current output with L2 normalization, mean-centering, PCA whitening, and a lower-dimensional sweep. Track effective rank, hubness, Recall@K, nDCG, and clustering together; the goal is to reduce pathological concentration without losing the strong group separation.</p><p class="stop"><strong>Stop condition:</strong> retain a transformation only if retrieval improves materially without a meaningful regression in structural metrics.</p></div></article>
+          <article class="step"><div class="step-number">3</div><div><h3>If retrieval remains weak, fine-tune for the downstream task</h3><p>Use a retrieval-aware objective such as contrastive, triplet, or ranking loss with verified positives and hard negatives. Recompute the full report rather than optimizing the projection alone.</p><p class="stop"><strong>Success signal:</strong> higher Recall@K and nDCG at the operating K, with hubness no longer worsening.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="method-heading">
+      <div class="panel-inner">
+        <h2 id="method-heading">How to read this draft</h2>
+        <details open>
+          <summary>Definitions and evidence notes</summary>
+          <ul>
+            <li><strong>Effective rank</strong> estimates how many independent directions carry meaningful variation; it is compared with the ambient dimension, not with a universal pass/fail target.</li>
+            <li><strong>Hubness skewness</strong> describes how unevenly points appear in K-nearest-neighbour lists. Higher positive skew means a longer tail of unusually frequent neighbours.</li>
+            <li><strong>Recall@K</strong> asks how many relevant items appear in the top K; <strong>Precision@K</strong> asks how much of the top K is relevant; <strong>nDCG@K</strong> rewards relevant items appearing earlier in the ranking.</li>
+            <li>The similarity and hubness histograms are compact, source-derived summaries of the traces already present in <code>quality_report.html</code>; no new observations were added. The dense pairwise matrix is intentionally not part of the first-view draft because it is difficult to interpret at common screen sizes.</li>
+            <li>“Healthy” means healthy for the evaluated diagnostic and threshold, not a guarantee of production performance. Missing label-based metrics remain explicitly marked as unavailable.</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+
+    <p class="footer-note">Design draft only. The library exporter and notebooks have not been modified.</p>
+  </main>
+
+  <script>
+    const COLORS = {
+      ink: '#172333', muted: '#5f7185', grid: '#e8eef4', line: '#b8c8d8',
+      navy: '#17324d', blue: '#3976d2', teal: '#168b86', purple: '#7857a8',
+      amber: '#bc7b15', coral: '#c6534b', green: '#2e8060'
+    };
+    const NS = 'http://www.w3.org/2000/svg';
+    const data = {
+      projection: { k: [5, 10], trust: [0.8968995214, 0.9077703357], continuity: [0.9096598029, 0.9194223881] },
+      retrieval: { k: [1, 3, 5], recall: [0, 0, 0.05], precision: [0, 0, 0.02], ndcg: [0, 0, 0.0264068123] },
+      similarityBins: [
+        { label: '-0.6 to -0.5', count: 23 }, { label: '-0.5 to -0.4', count: 2769 },
+        { label: '-0.4 to -0.3', count: 10725 }, { label: '-0.3 to -0.2', count: 12232 },
+        { label: '-0.2 to -0.1', count: 2679 }, { label: '-0.1 to 0.0', count: 5775 },
+        { label: '0.0 to 0.1', count: 1476 }, { label: '0.1 to 0.2', count: 8 },
+        { label: '0.2 to 0.3', count: 0 }, { label: '0.3 to 0.4', count: 0 },
+        { label: '0.4 to 0.5', count: 0 }, { label: '0.5 to 0.6', count: 0 },
+        { label: '0.6 to 0.7', count: 0 }, { label: '0.7 to 0.8', count: 0 },
+        { label: '0.8 to 0.9', count: 48 }, { label: '0.9 to 1.0', count: 9115 }
+      ],
+      hubnessBins: [52, 35, 37, 33, 27, 19, 19, 12, 10, 8, 5, 5, 11, 3, 5, 1, 1, 2, 3, 1, 4, 1, 1, 0, 1, 2, 0, 1, 0, 0, 0, 1]
+    };
+
+    function node(tag, attrs = {}, content = '') {
+      const el = document.createElementNS(NS, tag);
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+      if (content !== '') el.textContent = content;
+      return el;
+    }
+    function text(svg, x, y, value, attrs = {}) {
+      svg.appendChild(node('text', { x, y, fill: COLORS.muted, 'font-size': 12, ...attrs }, value));
+    }
+    function line(svg, x1, y1, x2, y2, attrs = {}) {
+      svg.appendChild(node('line', { x1, y1, x2, y2, stroke: COLORS.line, 'stroke-width': 1, ...attrs }));
+    }
+    function setup(id, aspect = .44) {
+      const svg = document.getElementById(id);
+      const width = Math.max(300, svg.getBoundingClientRect().width || 700);
+      const height = Math.max(250, Math.min(360, width * aspect));
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('height', height);
+      svg.replaceChildren();
+      svg.appendChild(node('title', {}, svg.getAttribute('aria-label') || 'Chart'));
+      return { svg, w: width, h: height };
+    }
+    function frame(svg, x, y, w, h, ticks, max, format = v => String(v)) {
+      ticks.forEach(v => {
+        const yy = y + h - (v / max) * h;
+        line(svg, x, yy, x + w, yy, { stroke: COLORS.grid });
+        text(svg, x - 8, yy + 4, format(v), { 'text-anchor': 'end', 'font-size': 11 });
+      });
+      line(svg, x, y, x, y + h, { stroke: COLORS.line });
+      line(svg, x, y + h, x + w, y + h, { stroke: COLORS.line });
+    }
+    function drawRank() {
+      const { svg, w, h } = setup('rank-chart', .36);
+      const x = Math.max(105, w * .2), barW = w - x - 36, y0 = h * .28, gap = h * .28;
+      const rows = [{ label: 'Effective rank', value: 5.52, color: COLORS.coral }, { label: 'Ambient dims', value: 64, color: COLORS.navy }];
+      rows.forEach((row, i) => {
+        const y = y0 + i * gap;
+        text(svg, x - 10, y + 9, row.label, { 'text-anchor': 'end', fill: COLORS.ink, 'font-size': 12, 'font-weight': 700 });
+        svg.appendChild(node('rect', { x, y, width: barW, height: 18, rx: 9, fill: '#e9eff5' }));
+        svg.appendChild(node('rect', { x, y, width: barW * row.value / 64, height: 18, rx: 9, fill: row.color }));
+        text(svg, x + barW + 8, y + 14, row.value === 64 ? '64' : '5.5', { fill: row.color, 'font-size': 13, 'font-weight': 800 });
+      });
+      text(svg, x, h - 12, '0', { 'font-size': 10 });
+      text(svg, x + barW, h - 12, '64 dimensions', { 'text-anchor': 'end', 'font-size': 10 });
+    }
+    function drawLineChart(id, series, max, yFormat, xValues, threshold = null) {
+      const { svg, w, h } = setup(id, .42);
+      const m = { l: 46, r: 34, t: 22, b: 38 }, x = m.l, y = m.t, pw = w - m.l - m.r, ph = h - m.t - m.b;
+      const ticks = max === 1 ? [0, .25, .5, .75, 1] : [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1];
+      frame(svg, x, y, pw, ph, ticks, max, yFormat);
+      if (threshold !== null) {
+        const ty = y + ph - threshold / max * ph;
+        line(svg, x, ty, x + pw, ty, { stroke: COLORS.coral, 'stroke-dasharray': '5 4' });
+        text(svg, x + pw, ty - 6, 'critical recall threshold', { 'text-anchor': 'end', fill: COLORS.coral, 'font-size': 10, 'font-weight': 700 });
+      }
+      const minX = Math.min(...xValues), maxX = Math.max(...xValues);
+      const xp = value => x + (value - minX) / Math.max(1, maxX - minX) * pw;
+      xValues.forEach(value => { const xx = xp(value); line(svg, xx, y + ph, xx, y + ph + 5, { stroke: COLORS.line }); text(svg, xx, y + ph + 21, String(value), { 'text-anchor': 'middle', fill: COLORS.ink, 'font-size': 11, 'font-weight': 700 }); });
+      series.forEach((s, seriesIndex) => {
+        const points = s.values.map((v, i) => `${xp(xValues[i])},${y + ph - v / max * ph}`).join(' ');
+        svg.appendChild(node('polyline', { points, fill: 'none', stroke: s.color, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+        s.values.forEach((v, i) => {
+          const xx = xp(xValues[i]), yy = y + ph - v / max * ph;
+          svg.appendChild(node('circle', { cx: xx, cy: yy, r: 5, fill: '#fff', stroke: s.color, 'stroke-width': 3 }));
+          if (i === s.values.length - 1) {
+            const labelOffset = (seriesIndex - (series.length - 1) / 2) * 14;
+            text(svg, xx + 10, yy + 4 + labelOffset, yFormat(v), { fill: s.color, 'font-size': 11, 'font-weight': 800 });
+          }
+        });
+      });
+    }
+    function drawProjection() {
+      drawLineChart('projection-chart', [
+        { values: data.projection.trust, color: COLORS.blue }, { values: data.projection.continuity, color: COLORS.teal }
+      ], 1, v => v.toFixed(2), data.projection.k);
+    }
+    function drawRetrieval() {
+      drawLineChart('retrieval-chart', [
+        { values: data.retrieval.recall, color: COLORS.coral }, { values: data.retrieval.precision, color: COLORS.amber }, { values: data.retrieval.ndcg, color: COLORS.purple }
+      ], 1, v => `${(v * 100).toFixed(v === 0 ? 0 : 1)}%`, data.retrieval.k, .3);
+    }
+    function drawHistogram(id, values, min, max, mean = null, xLabel = '') {
+      const { svg, w, h } = setup(id, .39);
+      const m = { l: 48, r: 24, t: 22, b: 48 }, x = m.l, y = m.t, pw = w - m.l - m.r, ph = h - m.t - m.b;
+      const maxValue = Math.max(...values), ticks = [0, maxValue / 2, maxValue];
+      frame(svg, x, y, pw, ph, ticks, maxValue, v => Math.round(v).toLocaleString());
+      const step = (max - min) / values.length, gap = Math.max(1, Math.min(4, pw / values.length * .12));
+      values.forEach((v, i) => {
+        const bw = pw / values.length - gap, bx = x + i * (pw / values.length) + gap / 2, bh = v / maxValue * ph;
+        svg.appendChild(node('rect', { x: bx, y: y + ph - bh, width: bw, height: bh, rx: 2, fill: i >= values.length - 2 && id === 'similarity-chart' ? COLORS.coral : COLORS.blue, opacity: .9 }));
+      });
+      const labels = id === 'similarity-chart' ? [{ i: 0, t: '-0.6' }, { i: 4, t: '-0.2' }, { i: 8, t: '0.2' }, { i: 12, t: '0.6' }, { i: 15, t: '1.0' }] : [{ i: 0, t: '0' }, { i: 5, t: '5' }, { i: 10, t: '10' }, { i: 15, t: '15' }, { i: 20, t: '20' }, { i: 25, t: '25' }, { i: 31, t: '31' }];
+      labels.forEach(({ i, t }) => text(svg, x + (i + .5) * pw / values.length, y + ph + 21, t, { 'text-anchor': 'middle', fill: COLORS.ink, 'font-size': 10, 'font-weight': 700 }));
+      if (mean !== null) {
+        const mx = x + ((mean - min) / (max - min)) * pw;
+        line(svg, mx, y, mx, y + ph, { stroke: COLORS.coral, 'stroke-dasharray': '5 4', 'stroke-width': 2 });
+        text(svg, Math.min(mx + 7, x + pw - 4), y + 12, `mean ${mean.toFixed(3)}`, { fill: COLORS.coral, 'font-size': 10, 'font-weight': 800 });
+      } else {
+        const mx = x + (5.5 / 32) * pw;
+        line(svg, mx, y, mx, y + ph, { stroke: COLORS.teal, 'stroke-dasharray': '5 4', 'stroke-width': 2 });
+        text(svg, mx + 7, y + 12, 'expected mean K=5', { fill: COLORS.teal, 'font-size': 10, 'font-weight': 800 });
+      }
+      if (xLabel) text(svg, x + pw / 2, h - 7, xLabel, { 'text-anchor': 'middle', fill: COLORS.muted, 'font-size': 10 });
+    }
+    function drawSimilarity() { drawHistogram('similarity-chart', data.similarityBins.map(d => d.count), -.6, 1, -.0023387729, 'pairwise cosine similarity'); }
+    function drawHubness() { drawHistogram('hubness-chart', data.hubnessBins, 0, 32, null, 'K-NN occurrence count'); }
+    function drawContrast() {
+      const { svg, w, h } = setup('contrast-chart', .42);
+      const m = { l: 132, r: 40, t: 24, b: 24 }, x = m.l, barW = w - m.l - m.r, rows = [
+        { label: 'Silhouette', value: .9425, color: COLORS.green }, { label: 'Trust / cont.', value: .911, color: COLORS.blue }, { label: 'Best Recall', value: .05, color: COLORS.coral }, { label: 'Best nDCG', value: .0264, color: COLORS.purple }
+      ];
+      rows.forEach((row, i) => {
+        const y = m.t + i * ((h - m.t - m.b) / rows.length) + 4, bh = 20;
+        text(svg, x - 10, y + 15, row.label, { 'text-anchor': 'end', fill: COLORS.ink, 'font-size': 11, 'font-weight': 700 });
+        svg.appendChild(node('rect', { x, y, width: barW, height: bh, rx: 10, fill: '#e9eff5' }));
+        svg.appendChild(node('rect', { x, y, width: Math.max(2, barW * row.value), height: bh, rx: 10, fill: row.color }));
+        text(svg, x + barW + 7, y + 15, `${(row.value * 100).toFixed(row.value < .1 ? 1 : 1)}%`, { fill: row.color, 'font-size': 11, 'font-weight': 800 });
+      });
+      text(svg, x, h - 5, '0%', { 'font-size': 10 }); text(svg, x + barW, h - 5, '100%', { 'text-anchor': 'end', 'font-size': 10 });
+    }
+    const drawAll = () => { drawRank(); drawProjection(); drawRetrieval(); drawSimilarity(); drawHubness(); drawContrast(); };
+    if ('ResizeObserver' in window) {
+      const observer = new ResizeObserver(() => requestAnimationFrame(drawAll));
+      document.querySelectorAll('.chart-wrap').forEach(el => observer.observe(el));
+    }
+    window.addEventListener('load', drawAll);
+    window.addEventListener('resize', drawAll, { passive: true });
+    drawAll();
+  </script>
+</body>
+</html>
