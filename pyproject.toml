@@ -20,7 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 plotting = ["plotly>=5.18"]
 dev = [
-    "jupyter>=1.1",
+    "jupyter>=1.1.1",
     "maturin>=1.13,<2.0",
     "mypy>=1.16.1",
     "pylint>=3.3.0",
