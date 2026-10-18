@@ -6,7 +6,7 @@
 
 > A fast, Rust-based library for evaluating, visualizing, and interpreting NLP data representations.
 
-![Status: WIP](https://img.shields.io/badge/Status-WIP%20👷🏽♂️-yellow)
+![Status: 0.2.0a1](https://img.shields.io/badge/Status-0.2.0a1%20alpha-orange)
 
 ## 📖 Overview
 
@@ -199,6 +199,14 @@ Available notebooks:
 - If the native module does not rebuild after changing Rust code, rerun `uv run maturin develop`.
 - The package name is `nlpie`, but the compiled Rust extension is configured as `nlpie._nlpie_core`, so imports should match that layout.
 - The project is still a WIP, so APIs and structure may change as the implementation evolves.
+- Version `0.2.0a1` is an alpha pre-release with intentional metric API changes.
+- NLP embedding metrics use cosine distance by default and normalize rows internally for cosine calculations.
+  Projection metrics use cosine distance for the high-dimensional embedding space and Euclidean distance for
+  low-dimensional coordinates by default.
+- Clustering reports provide cosine Silhouette and cosine Davies–Bouldin scores. Calinski–Harabasz was removed
+  because its Euclidean centroid assumptions do not match the documented directional embedding use case.
+- Supplying only `labels` computes geometry-based clustering metrics. ARI, NMI, and purity are unavailable until
+  `labels_pred` is supplied.
 
 ## 📦 Example usage
 
@@ -268,3 +276,19 @@ extension on your machine, so you need:
 
 If the native module does not rebuild after changing Rust code, rerun
 `uv run maturin develop`.
+
+### Running CI and Code Quality Checks Locally
+
+You can run the full CI suite locally (the exact same checks executed in GitHub Actions):
+
+```bash
+make ci
+# or directly:
+./scripts/run_ci.sh
+```
+
+Individual targets:
+- `make lint` – runs Ruff, Mypy, Pylint, Cargo fmt, and Clippy
+- `make format` – auto-formats Python and Rust files
+- `make test` – runs Python and Rust test suites
+- `make audit` – scans Python and Rust dependencies for security advisories

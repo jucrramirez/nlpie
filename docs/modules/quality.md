@@ -15,6 +15,8 @@ report, interpretation = evaluate_embedding_quality(
     # Optional: for clustering metrics
     labels=ground_truth_labels,
     labels_pred=predicted_labels,
+    # Cosine is the default for NLP embeddings.
+    metric="cosine",
 
     # Optional: for projection metrics
     low_dim=umap_embeddings_matrix,
@@ -69,12 +71,19 @@ for report in reports:
 The report object contains dataclasses for each category of metrics. These can be accessed programmatically.
 
 - **`report.intrinsic`**: `mean`, `std`, `min`, `max` cosine similarity.
-- **`report.clustering`**: `ari`, `nmi`, `purity`, `silhouette`, `calinski_harabasz`.
+- **`report.clustering`**: optional `ari`, `nmi`, and `purity`, plus cosine `silhouette` and cosine `davies_bouldin`.
 - **`report.geometry`**: `effective_rank`, `mean_similarity` (to centroid), `hubness_skewness`, `hubness_k`.
 - **`report.projection`**: List of objects with `k`, `trustworthiness`, `continuity`.
 - **`report.retrieval`**: List of objects with `k`, `recall`, `precision`, `mrr`, `ndcg`, `coverage`.
 
 All sections that were skipped due to missing inputs will be `None` or empty lists.
+
+When `labels` is provided without `labels_pred`, the report still computes geometry-based
+clustering metrics, while ARI, NMI, and purity are `None`. Supplying `labels_pred` without
+`labels` raises `ValueError`.
+
+Retrieval rows calculate MRR at their own `k` cutoff. A relevant result outside the requested
+cutoff contributes zero to that row's MRR.
 
 ## The `InterpretationReport` Data Structure
 
