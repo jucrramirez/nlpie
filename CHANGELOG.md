@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Windows CI now configures Vcpkg and uses the matching static OpenBLAS triplet without conflicting system/static Cargo features.
+
 ## [0.2.0a1] - 2026-10-18
 
 ### Added

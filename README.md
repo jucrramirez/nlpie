@@ -266,7 +266,15 @@ extension on your machine, so you need:
 - **A BLAS/LAPACK provider** for `ndarray-linalg`:
   - **macOS:** nothing to do — the build links the native Accelerate framework.
   - **Linux:** `sudo apt-get install libopenblas-dev gfortran`
-  - **Windows / minimal Linux:** build with the statically compiled fallback:
+  - **Windows:** install OpenBLAS with Vcpkg and set `VCPKG_ROOT`, then build
+    with the system backend:
+
+    ```powershell
+    vcpkg install openblas --triplet x64-windows-static-md
+    uv run maturin develop --features extension-module,ndarray-linalg/openblas-system
+    ```
+
+  - **Minimal Linux:** build with the statically compiled fallback:
 
     ```bash
     uv run maturin develop --features extension-module,openblas-static
