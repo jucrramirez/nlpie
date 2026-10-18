@@ -3,6 +3,14 @@ from __future__ import annotations
 import json
 
 from .base import ReportExporter
+from .presentation import build_presentation
+
+
+def _json_default(value):
+    item = getattr(value, "item", None)
+    if callable(item):
+        return item()
+    raise TypeError(f"Cannot serialize {type(value).__name__}")
 
 
 def _report_to_dict(report) -> dict:
@@ -63,20 +71,31 @@ class JsonExporter(ReportExporter):
 
     def to_string(self, report, interpretation=None) -> str:
         data = _report_to_dict(report)
-        if interpretation is not None:
-            explanations = getattr(interpretation, "explanations", None)
-            if explanations:
-                data["interpretation"] = [
-                    {
-                        "metric": e.metric,
-                        "severity": e.severity,
-                        "summary": e.summary,
-                        "detail": getattr(e, "detail", ""),
-                        "recommendation": getattr(e, "recommendation", ""),
-                    }
-                    for e in explanations
-                ]
-        return json.dumps(data, indent=self.indent)
+        presentation = build_presentation(report, interpretation)
+        explanations = presentation.interpretation.explanations
+        data["interpretation"] = [
+            {
+                "metric": e.metric,
+                "severity": e.severity,
+                "summary": e.summary,
+                "detail": getattr(e, "detail", ""),
+                "recommendation": getattr(e, "recommendation", ""),
+            }
+            for e in explanations
+        ]
+        data["summary"] = {
+            "status": presentation.status,
+            "headline": presentation.headline,
+            "why_it_matters": presentation.why_it_matters,
+            "primary_blockers": presentation.primary_blockers,
+            "healthy_signals": presentation.healthy_signals,
+        }
+        data["metric_interpretation"] = [
+            metric.as_dict() for metric in presentation.metric_interpretation
+        ]
+        data["next_steps"] = presentation.next_steps
+        data["data_availability"] = presentation.data_availability
+        return json.dumps(data, indent=self.indent, default=_json_default)
 
     def export(self, report, path: str, interpretation=None) -> None:
         with open(path, "w") as f:

@@ -203,3 +203,10 @@ class TestBuildStory:
     def test_recommendations_collected(self):
         story = build_story([self._exp("warning", rec="do A"), self._exp("info", rec="do B")])
         assert story.recommendations == ["do A", "do B"]
+
+    def test_info_only_is_healthy_and_has_no_actionable_recommendation(self):
+        story = build_story([self._exp("info", rec="No action required.")])
+
+        assert story.is_healthy
+        assert story.headline_severity == "ok"
+        assert story.recommendations == []

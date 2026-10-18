@@ -435,6 +435,28 @@ class PlotlyBackend(PlotBackend):
         )
         return fig
 
+    def retrieval_metrics_curve_extended(
+        self,
+        k_values: Sequence[int],
+        recall: Sequence[float],
+        precision: Sequence[float],
+        ndcg: Sequence[float],
+        mrr: Sequence[float] | None = None,
+        coverage: Sequence[float] | None = None,
+    ) -> object:
+        fig = cast(Any, self.retrieval_metrics_curve(k_values, recall, precision, ndcg))
+        if mrr is not None:
+            fig.add_trace(
+                self._go.Scatter(x=list(k_values), y=list(mrr), mode="lines+markers", name="MRR")
+            )
+        if coverage is not None:
+            fig.add_trace(
+                self._go.Scatter(
+                    x=list(k_values), y=list(coverage), mode="lines+markers", name="Coverage"
+                )
+            )
+        return fig
+
     def similarity_heatmap(
         self,
         sim_matrix: list[list[float]],
@@ -746,11 +768,13 @@ class PlotlyBackend(PlotBackend):
 
         r = getattr(report, "retrieval", None)
         if r:
-            fig = self.retrieval_metrics_curve(
+            fig = self.retrieval_metrics_curve_extended(
                 [x.k for x in r],
                 [x.recall for x in r],
                 [x.precision for x in r],
                 [x.ndcg for x in r],
+                [x.mrr for x in r],
+                [x.coverage for x in r],
             )
             _add_caption(fig, _CHART_CAPTIONS.get("Retrieval Quality", ""), y_pos=-0.14)
             charts.append(("Retrieval Quality", fig))
@@ -801,11 +825,11 @@ class PlotlyBackend(PlotBackend):
         fig_kpi = _build_kpi_figure(self._go, report)
         chart_list = self._build_chart_list(report)
 
-        explanations = (
-            getattr(interpretation, "explanations", None) or []
-            if interpretation is not None
-            else []
-        )
+        if interpretation is None:
+            from ..interpret.registry import ExplanationRegistry
+
+            interpretation = ExplanationRegistry.explain_all(report)
+        explanations = getattr(interpretation, "explanations", None) or []
         fig_storytelling = (
             self._build_storytelling_figure(explanations, report)
             if interpretation is not None
