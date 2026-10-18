@@ -10,7 +10,7 @@
 
 ## 📖 Overview
 
-While the initial scope of this project is evaluating and visualizing common NLP data representations, the real magic lies in **interpretation**. 
+While the initial scope of this project is evaluating and visualizing common NLP data representations, the real magic lies in **interpretation**.
 
 This tool is designed to make it easier to inspect these representations, extract actionable insights, and act as a lightning-fast preprocessor to get your data ready for downstream tasks.
 
@@ -18,17 +18,17 @@ This tool is designed to make it easier to inspect these representations, extrac
 
 I'm not trying to reinvent the wheel. I built this primarily as a personal daily-driver tool, mostly because I'm pretty sure young Manuel would have deeply appreciated having something like this back in the day.
 
-I'm leaving this repository public to open the doors for community feedback, new ideas, and overall improvements. 
+I'm leaving this repository public to open the doors for community feedback, new ideas, and overall improvements.
 
 ## 🎤 The Hannah Montana Philosophy
 
-Another personal goal here is to learn a new language. I chose Rust because I wanted to get the best of both worlds (as Hannah Montana wisely said): 
+Another personal goal here is to learn a new language. I chose Rust because I wanted to get the best of both worlds (as Hannah Montana wisely said):
 - The **ease of use** of Python 🐍
 - The **raw performance** of Rust 🦀
 
 ## ⚠️ Disclaimer
 
-As I mentioned, I am actively learning how to program in Rust while building this. Please don't judge me if looking at the source code makes your eyes start bleeding :'( 
+As I mentioned, I am actively learning how to program in Rust while building this. Please don't judge me if looking at the source code makes your eyes start bleeding :'(
 
 Constructive feedback, pull requests, and band-aids for your eyes are always welcome!
 
@@ -132,6 +132,21 @@ uv sync --all-extras              # Install all extras at once
 ```
 
 > **Note:** `uv sync` synchronises the environment with the lock file. Packages installed manually via `uv pip install` will be removed. Always use `uv sync --extra <name>` to include optional dependencies.
+
+#### Install pre-commit hooks
+
+Install `pre-commit` as a user-level tool, then register the repository hooks:
+
+```bash
+uv tool install pre-commit
+pre-commit install
+```
+
+Run all configured checks manually when needed:
+
+```bash
+pre-commit run --all-files
+```
 
 If you want to run the project inside the managed environment:
 

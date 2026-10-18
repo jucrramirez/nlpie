@@ -68,7 +68,7 @@ def _to_matrix(embeddings: MatrixLike) -> np.ndarray:
 
     Supports lists, tuples, and numpy arrays. Empty input is treated as (0, 0).
     """
-    if isinstance(embeddings, (list, tuple)) and len(embeddings) == 0:
+    if isinstance(embeddings, list | tuple) and len(embeddings) == 0:
         return np.empty((0, 0), dtype=np.float32)
     arr = np.asarray(embeddings, dtype=np.float32)
     if arr.ndim != 2:
@@ -81,7 +81,7 @@ def _to_vector(vector: VectorLike) -> list[float]:
     if hasattr(vector, "tolist"):
         vector = vector.tolist()
 
-    if not isinstance(vector, (list, tuple)):
+    if not isinstance(vector, list | tuple):
         raise TypeError("Vector must be a list, tuple, or numpy array")
 
     return [float(x) for x in vector]

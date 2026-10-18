@@ -21,7 +21,7 @@ from nlpie import (
 
 ```python
 from nlpie import (
-    adjusted_rand_index, normalized_mutual_info, purity_score, 
+    adjusted_rand_index, normalized_mutual_info, purity_score,
     silhouette_score, davies_bouldin_score
 )
 ```
@@ -29,7 +29,7 @@ from nlpie import (
 **Label Comparison (Requires True and Predicted Labels):**
 - **`adjusted_rand_index(labels_true, labels_pred)`**: Computes ARI. Perfect matching scores 1.0, random assignments score ~0.0.
 - **`normalized_mutual_info(labels_true, labels_pred)`**: Computes NMI. Ranges from 0.0 (no mutual info) to 1.0 (perfect correlation).
-- **`purity_score(labels_true, labels_pred)`**: Computes the purity of the clusters. 
+- **`purity_score(labels_true, labels_pred)`**: Computes the purity of the clusters.
 
 **Intrinsic Quality (Requires Embeddings and Labels):**
 - **`silhouette_score(embeddings, labels, metric="cosine")`**: Mean Silhouette Coefficient. Cosine distance is the default for directional NLP embeddings; use `metric="euclidean"` when Euclidean geometry is intended.
