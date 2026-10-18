@@ -16,7 +16,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: clippy, rustfmt
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -55,7 +55,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: actions-rust-lang/setup-rust-toolchain@v2
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -108,7 +108,7 @@ jobs:
         with:
           python-version: "3.13"
       - uses: actions-rust-lang/setup-rust-toolchain@v2
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Install system dependencies
         run: |
           sudo apt-get update
